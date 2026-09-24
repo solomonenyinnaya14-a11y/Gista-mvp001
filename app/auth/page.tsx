@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { authCallbackUrl } from "@/lib/auth-url";
 
 export default function AuthPage(){
   const router = useRouter();
@@ -30,7 +31,7 @@ export default function AuthPage(){
         router.refresh();
       }
     } else {
-      const redirectTo = `${window.location.origin}/auth/callback?next=/`;
+      const redirectTo = authCallbackUrl("/");
       const result=await supabase.auth.signUp({
         email,
         password,
