@@ -1,0 +1,6 @@
+/* Home-feed polish: keep profile photos crisp and remove default link underlines. */
+.avatar{overflow:hidden;display:grid;place-items:center;flex-shrink:0}
+.avatar img{display:block;width:100%;height:100%;object-fit:cover;border-radius:50%}
+.identity a{color:inherit;text-decoration:none}
+.identity a:hover{text-decoration:none}
+.identity strong{display:block;color:inherit;text-decoration:none}
