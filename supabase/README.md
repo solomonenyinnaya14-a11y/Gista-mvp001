@@ -15,6 +15,6 @@ not_interested(user_id, post_id, created_at)
 
 MVP content intentionally excludes video, DMs, reposts, mute, communities and monetization.
 
-Notification triggers currently create notifications for follows, likes, responses, and replies. Reply notifications target the author of the response being replied to.
+Notification triggers currently create notifications for follows, likes, responses, replies, and @mentions. Mention notifications are generated from @username patterns in posts, responses, and replies. Reply notifications target the author of the response being replied to.
 
 profile-media storage bucket: public profile images (JPG/PNG/WebP, 5MB max), uploads/deletes restricted to the authenticated user's UUID folder.
