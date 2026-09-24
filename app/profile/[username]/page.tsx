@@ -13,6 +13,7 @@ type PublicPost = {
   media_url: string | null;
   category: string;
   created_at: string;
+  voice_duration_seconds: number | null;
 };
 
 export default function PublicProfile() {
