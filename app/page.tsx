@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Bell, Bookmark, Heart, Home, MessageCircle, Plus, Search, Settings, Share2, User } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -32,6 +33,7 @@ type Post = {
 
 export default function HomePage() {
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
   const [tab, setTab] = useState("Discover");
   const [user, setUser] = useState<{ id: string; email?: string | null } | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -240,7 +242,7 @@ export default function HomePage() {
 
   async function toggleLike(post: Post) {
     if (!user) {
-      window.location.href = "/auth";
+      router.push("/auth");
       return;
     }
 
@@ -260,7 +262,7 @@ export default function HomePage() {
 
   async function toggleSave(post: Post) {
     if (!user) {
-      window.location.href = "/auth";
+      router.push("/auth");
       return;
     }
 
@@ -283,7 +285,7 @@ export default function HomePage() {
     <main className="app-shell">
       <header className="topbar">
         <div className="brand"><div className="brand-icon">G</div><span>Gista</span></div>
-        <button className="icon-btn" aria-label="Settings" onClick={() => { window.location.href = "/settings"; }}><Settings size={20} /></button>
+        <button className="icon-btn" aria-label="Settings" onClick={() => { router.push("/settings"); }}><Settings size={20} /></button>
       </header>
 
       <section className="content">
@@ -297,15 +299,15 @@ export default function HomePage() {
           <Link href="/profile" className="avatar" aria-label="Open your profile">
             {profile?.avatar_url ? <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : initials}
           </Link>
-          <button className="composer-input" onClick={() => { window.location.href = "/create"; }}>What's on your mind, {displayName.split(" ")[0]}?</button>
-          <button className="create-btn" aria-label="Start a Gist" onClick={() => { window.location.href = "/create"; }}><Plus size={19} /></button>
+          <button className="composer-input" onClick={() => { router.push("/create"); }}>What&apos;s on your mind, {displayName.split(" ")[0]}?</button>
+          <button className="create-btn" aria-label="Start a Gist" onClick={() => { router.push("/create"); }}><Plus size={19} /></button>
         </div>
 
         <div className="feed">
           {loading ? (
             <p className="feed-message">Loading Gists…</p>
           ) : feedError ? (
-            <div className="empty-state"><h3>We couldn't load the Gists</h3><p>{feedError}</p><button className="primary small" onClick={() => void loadPosts(user)}>Try again</button></div>
+            <div className="empty-state"><h3>We couldn&apos;t load the Gists</h3><p>{feedError}</p><button className="primary small" onClick={() => void loadPosts(user)}>Try again</button></div>
           ) : posts.length === 0 ? (
             <div className="empty-state"><h3>No Gists yet</h3><p>{tab === "Following" ? "Follow people to see their Gists here." : "Be the first person to start a Gist."}</p></div>
           ) : posts.map((post) => (
@@ -354,10 +356,10 @@ export default function HomePage() {
 
       <nav className="bottom-nav">
         <button className="nav-active"><Home /><span>Home</span></button>
-        <button onClick={() => { window.location.href = "/search"; }}><Search /><span>Search</span></button>
-        <button className="nav-create" onClick={() => { window.location.href = "/create"; }} aria-label="Start a Gist"><Plus /></button>
-        <button className="notification-nav" onClick={() => { window.location.href = "/notifications"; }}><Bell /><span>Notifications</span>{unreadNotifications > 0 && <span className="notification-badge">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span>}</button>
-        <button onClick={() => { window.location.href = "/profile"; }}><User /><span>Profile</span></button>
+        <button onClick={() => { router.push("/search"); }}><Search /><span>Search</span></button>
+        <button className="nav-create" onClick={() => { router.push("/create"); }} aria-label="Start a Gist"><Plus /></button>
+        <button className="notification-nav" onClick={() => { router.push("/notifications"); }}><Bell /><span>Notifications</span>{unreadNotifications > 0 && <span className="notification-badge">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span>}</button>
+        <button onClick={() => { router.push("/profile"); }}><User /><span>Profile</span></button>
       </nav>
     </main>
   );
