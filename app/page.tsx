@@ -85,68 +85,79 @@ export default function HomePage() {
 
     let query = supabase
       .from("posts")
-      .select("id,body,content_type,media_url,category,status,created_at,author_id,voice_duration_seconds");
+      .select("id,body,content_type,media_url,category,status,created_at,author_id,voice_duration_seconds")
+      .order("created_at", { ascending: false })
+      .limit(tab === "Following" ? 50 : 30);
 
-    let followingIds: string[] = [];
+    // Start the first feed query and all user filters together. The previous
+    // implementation waited for the filters before requesting posts, creating
+    // an avoidable network waterfall on every home load.
+    const [postsResult, blockedResult, hiddenResult, followsResult] = await Promise.all([
+      query,
+      currentUser
+        ? supabase.from("blocks").select("blocked_id").eq("blocker_id", currentUser.id)
+        : Promise.resolve({ data: [] as { blocked_id: string }[], error: null }),
+      currentUser
+        ? supabase.from("not_interested").select("post_id").eq("user_id", currentUser.id)
+        : Promise.resolve({ data: [] as { post_id: string }[], error: null }),
+      currentUser && tab === "Following"
+        ? supabase.from("follows").select("following_id").eq("follower_id", currentUser.id)
+        : Promise.resolve({ data: [] as { following_id: string }[], error: null }),
+    ]);
 
-    if (currentUser) {
-      const [blockedResult, notInterestedResult, followsResult] = await Promise.all([
-        supabase.from("blocks").select("blocked_id").eq("blocker_id", currentUser.id),
-        supabase.from("not_interested").select("post_id").eq("user_id", currentUser.id),
-        tab === "Following"
-          ? supabase.from("follows").select("following_id").eq("follower_id", currentUser.id)
-          : Promise.resolve({ data: [] as { following_id: string }[], error: null }),
-      ]);
-
-      const blockedIds = (blockedResult.data ?? []).map((item: { blocked_id: string }) => item.blocked_id);
-      const hiddenPostIds = (notInterestedResult.data ?? []).map((item: { post_id: string }) => item.post_id);
-      if (blockedIds.length) query = query.not("author_id", "in", "(" + blockedIds.join(",") + ")");
-      if (hiddenPostIds.length) query = query.not("id", "in", "(" + hiddenPostIds.join(",") + ")");
-
-      if (followsResult.error) {
-        setFeedError(followsResult.error.message);
-        setPosts([]);
-        setLoading(false);
-        return;
-      }
-      followingIds = (followsResult.data ?? []).map((item: { following_id: string }) => item.following_id);
+    if (postsResult.error) {
+      setFeedError(postsResult.error.message);
+      setPosts([]);
+      setLoading(false);
+      return;
     }
-
-    if (tab === "Trending") query = query.eq("status", "trending");
-
-    if (tab === "Following") {
-      if (!currentUser || !followingIds.length) {
-        setPosts([]);
-        setLoading(false);
-        return;
-      }
-      query = query.in("author_id", followingIds);
-    }
-
-    const { data, error } = await query.order("created_at", { ascending: false }).limit(50);
-
-    if (error) {
-      setFeedError(error.message);
+    if (followsResult.error) {
+      setFeedError(followsResult.error.message);
       setPosts([]);
       setLoading(false);
       return;
     }
 
-    if (!data?.length) {
+    const blockedIds = new Set((blockedResult.data ?? []).map((item: { blocked_id: string }) => item.blocked_id));
+    const hiddenPostIds = new Set((hiddenResult.data ?? []).map((item: { post_id: string }) => item.post_id));
+    const followingIds = new Set((followsResult.data ?? []).map((item: { following_id: string }) => item.following_id));
+
+    let data = (postsResult.data ?? []).filter((post) => {
+      if (blockedIds.has(post.author_id) || hiddenPostIds.has(post.id)) return false;
+      if (tab === "Following" && !followingIds.has(post.author_id)) return false;
+      return true;
+    });
+
+    if (tab === "Trending") {
+      data = data.filter((post) => post.status === "trending");
+    }
+
+    if (!data.length) {
       setPosts([]);
       setLoading(false);
       return;
     }
 
     const postIds = data.map((post) => post.id);
+    const authorIds = [...new Set(data.map((post) => post.author_id))];
 
-    const [likesResult, responsesResult, savesResult] = await Promise.all([
+    // Counts, user state, and author profiles are independent reads. Fetch
+    // them in one parallel batch instead of serial requests.
+    const [likesResult, responsesResult, savesResult, profileResult] = await Promise.all([
       supabase.from("likes").select("post_id,user_id").in("post_id", postIds),
       supabase.from("responses").select("post_id").in("post_id", postIds),
       currentUser
         ? supabase.from("saves").select("post_id").eq("user_id", currentUser.id).in("post_id", postIds)
-        : Promise.resolve({ data: [] as { post_id: string }[] }),
+        : Promise.resolve({ data: [] as { post_id: string }[], error: null }),
+      supabase.from("profiles").select("id,display_name,username,avatar_url").in("id", authorIds),
     ]);
+
+    if (profileResult.error) {
+      setFeedError(profileResult.error.message);
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
 
     const likeCounts = Object.fromEntries(postIds.map((postId) => [postId, 0]));
     const responseCounts = Object.fromEntries(postIds.map((postId) => [postId, 0]));
@@ -154,7 +165,6 @@ export default function HomePage() {
     (likesResult.data ?? []).forEach((item: { post_id: string }) => {
       likeCounts[item.post_id] = (likeCounts[item.post_id] ?? 0) + 1;
     });
-
     (responsesResult.data ?? []).forEach((item: { post_id: string }) => {
       responseCounts[item.post_id] = (responseCounts[item.post_id] ?? 0) + 1;
     });
@@ -165,32 +175,16 @@ export default function HomePage() {
         .map((item: { post_id: string }) => item.post_id),
     );
     const saved = new Set((savesResult.data ?? []).map((item: { post_id: string }) => item.post_id));
-
-    const authorIds = [...new Set(data.map((post) => post.author_id))];
-    const [profileResult] = await Promise.all([
-      authorIds.length
-        ? supabase.from("profiles").select("id,display_name,username,avatar_url").in("id", authorIds)
-        : Promise.resolve({ data: [], error: null }),
-    ]);
-
-    if (profileResult.error) {
-      setFeedError(profileResult.error.message);
-      setPosts([]);
-      setLoading(false);
-      return;
-    }
-
     const profilesById = new Map((profileResult.data ?? []).map((item) => [item.id, item as Profile]));
-    const normalized = data.map((post) => ({
+
+    setPosts(data.map((post) => ({
       ...post,
       profiles: profilesById.get(post.author_id) ?? null,
       likes: likeCounts[post.id] ?? 0,
       responses: responseCounts[post.id] ?? 0,
       liked: liked.has(post.id),
       saved: saved.has(post.id),
-    }));
-
-    setPosts(normalized);
+    })));
     setLoading(false);
   }, [supabase, tab]);
 
@@ -294,7 +288,7 @@ export default function HomePage() {
     <main className="app-shell">
       <header className="topbar">
         <div className="brand"><div className="brand-icon">G</div><span>Gista</span></div>
-        <button className="icon-btn" aria-label="Settings" onClick={() => { router.push("/settings"); }}><Settings size={20} /></button>
+        <Link className="icon-btn" aria-label="Settings" href="/settings"><Settings size={20} /></Link>
       </header>
 
       <section className="content">
@@ -308,8 +302,8 @@ export default function HomePage() {
           <Link href="/profile" className="avatar" aria-label="Open your profile">
             {profile?.avatar_url ? <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : initials}
           </Link>
-          <button className="composer-input" onClick={() => { router.push("/create"); }}>What&apos;s on your mind, {displayName.split(" ")[0]}?</button>
-          <button className="create-btn" aria-label="Start a Gist" onClick={() => { router.push("/create"); }}><Plus size={19} /></button>
+          <Link className="composer-input" href="/create">What&apos;s on your mind, {displayName.split(" ")[0]}?</Link>
+          <Link className="create-btn" aria-label="Start a Gist" href="/create"><Plus size={19} /></Link>
         </div>
 
         <div className="feed">
@@ -334,7 +328,16 @@ export default function HomePage() {
                 <span className="category">{post.category}</span>
               </div>
 
-              {post.content_type === "photo" && post.media_url && <img src={post.media_url} alt="Gist photo" style={{ width: "100%", borderRadius: 16, marginTop: 10 }} />}
+              {post.content_type === "photo" && post.media_url && (
+                <img
+                  src={post.media_url}
+                  alt="Gist photo"
+                  loading={index === 0 ? "eager" : "lazy"}
+                  decoding="async"
+                  fetchPriority={index === 0 ? "high" : "auto"}
+                  style={{ width: "100%", borderRadius: 16, marginTop: 10 }}
+                />
+              )}
               {post.content_type === "voice" && post.media_url && <VoiceNote src={post.media_url} durationHint={post.voice_duration_seconds} />}
               {post.body && <p className="post-text">{post.body}</p>}
 
@@ -364,11 +367,11 @@ export default function HomePage() {
       </section>
 
       <nav className="bottom-nav">
-        <button className="nav-active"><Home /><span>Home</span></button>
-        <button onClick={() => { router.push("/search"); }}><Search /><span>Search</span></button>
-        <button className="nav-create" onClick={() => { router.push("/create"); }} aria-label="Start a Gist"><Plus /></button>
-        <button className="notification-nav" onClick={() => { router.push("/notifications"); }}><Bell /><span>Notifications</span>{unreadNotifications > 0 && <span className="notification-badge">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span>}</button>
-        <button onClick={() => { router.push("/profile"); }}><User /><span>Profile</span></button>
+        <Link className="nav-active" href="/"><Home /><span>Home</span></Link>
+        <Link href="/search"><Search /><span>Search</span></Link>
+        <Link className="nav-create" href="/create" aria-label="Start a Gist"><Plus /></Link>
+        <Link className="notification-nav" href="/notifications"><Bell /><span>Notifications</span>{unreadNotifications > 0 && <span className="notification-badge">{unreadNotifications > 99 ? "99+" : unreadNotifications}</span>}</Link>
+        <Link href="/profile"><User /><span>Profile</span></Link>
       </nav>
     </main>
   );
