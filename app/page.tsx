@@ -40,18 +40,22 @@ export default function HomePage(){
   if(error||!data){setPosts([]);setLoading(false);return;}
   const postIds=data.map((p:any)=>p.id);
   if(postIds.length===0){setPosts([]);setLoading(false);return;}
-  const [likes,responses,saves]=await Promise.all([
+  const [likes,responses,saves,blocked,notInterested]=await Promise.all([
    supabase.from("likes").select("post_id,user_id").in("post_id",postIds),
    supabase.from("responses").select("post_id").in("post_id",postIds),
-   currentUser?supabase.from("saves").select("post_id,user_id").eq("user_id",currentUser.id).in("post_id",postIds):Promise.resolve({data:[]})
+   currentUser?supabase.from("saves").select("post_id,user_id").eq("user_id",currentUser.id).in("post_id",postIds):Promise.resolve({data:[]}),
+   currentUser?supabase.from("blocks").select("blocked_id").eq("blocker_id",currentUser.id):Promise.resolve({data:[]}),
+   currentUser?supabase.from("not_interested").select("post_id").eq("user_id",currentUser.id).in("post_id",postIds):Promise.resolve({data:[]})
   ]);
+  const blockedIds=new Set((blocked.data??[]).map((x:any)=>x.blocked_id));
+  const hiddenIds=new Set((notInterested.data??[]).map((x:any)=>x.post_id));
   const lc=Object.fromEntries(postIds.map(id=>[id,0]));
   const rc=Object.fromEntries(postIds.map(id=>[id,0]));
   (likes.data??[]).forEach((x:any)=>{lc[x.post_id]++;});
   (responses.data??[]).forEach((x:any)=>{rc[x.post_id]++;});
   const liked=new Set((likes.data??[]).filter((x:any)=>x.user_id===currentUser?.id).map((x:any)=>x.post_id));
   const saved=new Set((saves.data??[]).map((x:any)=>x.post_id));
-  setPosts((data as any[]).map(p=>({...p,likes:lc[p.id],responses:rc[p.id],liked:liked.has(p.id),saved:saved.has(p.id)})));
+  setPosts((data as any[]).filter(p=>!blockedIds.has(p.author_id)&&!hiddenIds.has(p.id)).map(p=>({...p,likes:lc[p.id],responses:rc[p.id],liked:liked.has(p.id),saved:saved.has(p.id)})));
   setLoading(false);
  },[supabase,tab]);
 
