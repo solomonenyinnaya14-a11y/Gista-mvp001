@@ -1,0 +1,8 @@
+"use client";
+import {useState} from "react";
+import {useRouter} from "next/navigation";
+import {createClient} from "@/lib/supabase/client";
+export default function ResetPassword(){
+ const [password,setPassword]=useState(""); const [confirm,setConfirm]=useState(""); const [message,setMessage]=useState(""); const [loading,setLoading]=useState(false); const router=useRouter();
+ async function submit(e:React.FormEvent){e.preventDefault(); if(password!==confirm){setMessage("Passwords do not match.");return} setLoading(true); const {error}=await createClient().auth.updateUser({password}); setMessage(error?.message??"Password updated. You can now log in."); setLoading(false); if(!error)setTimeout(()=>router.push("/auth"),700)}
+ return <main className="auth-page"><div className="auth-card"><div className="brand auth-brand"><div className="brand-icon">G</div><span>Gista</span></div><h1>Set a new password</h1><p>Choose a new password for your Gista account.</p><form onSubmit={submit}><label>New password<input type="password" required minLength={6} value={password} onChange={e=>setPassword(e.target.value)}/></label><label>Confirm password<input type="password" required minLength={6} value={confirm} onChange={e=>setConfirm(e.target.value)}/></label><button className="primary" disabled={loading}>{loading?"Updating…":"Update password"}</button></form>{message&&<div className="auth-message">{message}</div>}</div></main>}
