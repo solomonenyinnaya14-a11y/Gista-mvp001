@@ -1,5 +1,31 @@
 "use client";
-import {useEffect,useState} from "react";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import {createClient} from "@/lib/supabase/client";
-export default function BlockedPage(){const s=createClient();const [rows,setRows]=useState<any[]>([]);async function load(){const {data:{user}}=await s.auth.getUser();if(!user)return;const {data}=await s.from("blocks").select("blocked_id,profiles(display_name,username)").eq("blocker_id",user.id);setRows(data??[])}useEffect(()=>{load()},[]);return <main className="content"><header className="simple-header"><Link href="/settings">‹ Settings</Link><strong>Blocked users</strong></header>{rows.length===0?<p>No blocked users.</p>:<div className="feed">{rows.map(r=><div className="post" key={r.blocked_id}><strong>{r.profiles?.display_name??"Gista User"}</strong><span>@{r.profiles?.username??"user"}</span><button className="primary small" onClick={async()=>{await s.from("blocks").delete().eq("blocked_id",r.blocked_id);load()}}>Unblock</button></div>)}</div>}</main>}
+import { createClient } from "@/lib/supabase/client";
+
+export default function BlockedPage() {
+  const supabase = createClient();
+  const [rows, setRows] = useState<any[]>([]);
+
+  async function load() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.from("blocks").select("blocked_id,profiles(display_name,username)").eq("blocker_id", user.id);
+    setRows(data ?? []);
+  }
+
+  useEffect(() => { load(); }, [supabase]);
+
+  async function unblock(id: string) {
+    await supabase.from("blocks").delete().eq("blocked_id", id);
+    await load();
+  }
+
+  return (
+    <main className="content">
+      <header className="simple-header"><Link href="/settings">‹ Settings</Link><strong>Blocked users</strong></header>
+      {rows.length === 0 ? <p>No blocked users.</p> : <div className="feed">{rows.map((row) => <div className="post" key={row.blocked_id}><strong>{row.profiles?.display_name ?? "Gista User"}</strong><span>@{row.profiles?.username ?? "user"}</span><button className="primary small" onClick={() => unblock(row.blocked_id)}>Unblock</button></div>)}</div>}
+    </main>
+  );
+}
