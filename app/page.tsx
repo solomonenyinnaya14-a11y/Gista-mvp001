@@ -217,7 +217,6 @@ export default function HomePage() {
       setAuthReady(true);
       void loadProfile(currentUser);
       void loadNotifications(currentUser);
-      void loadPosts(currentUser);
 
       if (currentUser) {
         notificationChannel = supabase
@@ -244,7 +243,6 @@ export default function HomePage() {
       setAuthReady(true);
       void loadProfile(currentUser);
       void loadNotifications(currentUser);
-      void loadPosts(currentUser);
     });
 
     return () => {
