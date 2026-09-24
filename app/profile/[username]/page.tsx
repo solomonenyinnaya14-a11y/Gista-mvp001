@@ -1,7 +1,157 @@
 "use client";
-import {useEffect,useState} from "react";import Link from "next/link";import {useParams,useRouter} from "next/navigation";import {createClient} from "@/lib/supabase/client";
-export default function PublicProfile(){const {username}=useParams<{username:string}>();const router=useRouter();const supabase=createClient();const [p,setP]=useState<any>(null);const [me,setMe]=useState<any>(null);const [following,setFollowing]=useState(false);const [counts,setCounts]=useState({gists:0,followers:0,following:0});
-async function load(){const {data:{user}}=await supabase.auth.getUser();setMe(user);const {data}=await supabase.from("profiles").select("id,username,display_name,bio,avatar_url").eq("username",username).single();setP(data);if(!data)return;const [f,g,fo]=await Promise.all([user?supabase.from("follows").select("follower_id").eq("follower_id",user.id).eq("following_id",data.id).maybeSingle():Promise.resolve({data:null}),supabase.from("posts").select("id",{count:"exact",head:true}).eq("author_id",data.id),supabase.from("follows").select("follower_id",{count:"exact",head:true}).eq("following_id",data.id)]);setFollowing(!!f.data);setCounts({gists:g.count??0,followers:fo.count??0,following:0})}
-useEffect(()=>{load()},[username]);
-async function toggle(){if(!me){router.push("/auth");return}if(me.id===p.id)return;if(following){await supabase.from("follows").delete().eq("follower_id",me.id).eq("following_id",p.id);setFollowing(false);setCounts(x=>({...x,followers:Math.max(0,x.followers-1)}))}else{const {error}=await supabase.from("follows").insert({follower_id:me.id,following_id:p.id});if(!error){setFollowing(true);setCounts(x=>({...x,followers:x.followers+1}))}}}
-if(!p)return <main className="content"><p>Loading profile…</p></main>;return <main className="profile-page"><header className="simple-header"><Link href="/">‹ Home</Link><strong>Profile</strong><span/></header><section className="profile-card"><div className="profile-avatar">{p.display_name?.[0]?.toUpperCase()??"G"}</div><h1>{p.display_name}</h1><p>@{p.username}</p><p className="bio">{p.bio||"A place to talk, share and connect."}</p><div className="profile-stats"><span><b>{counts.gists}</b> Gists</span><span><b>{counts.followers}</b> Followers</span></div>{me?.id!==p.id&&<button className="primary small" onClick={toggle}>{following?"Unfollow":"Follow"}</button>}</section></main>}
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+
+type PublicPost = {
+  id: string;
+  body: string | null;
+  content_type: string;
+  media_url: string | null;
+  category: string;
+  created_at: string;
+};
+
+export default function PublicProfile() {
+  const { username } = useParams<{ username: string }>();
+  const router = useRouter();
+  const supabase = createClient();
+  const [profile, setProfile] = useState<any>(null);
+  const [me, setMe] = useState<any>(null);
+  const [following, setFollowing] = useState(false);
+  const [counts, setCounts] = useState({ gists: 0, followers: 0, following: 0 });
+  const [gists, setGists] = useState<PublicPost[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    setMe(user);
+
+    const { data } = await supabase
+      .from("profiles")
+      .select("id,username,display_name,bio,avatar_url")
+      .eq("username", username)
+      .single();
+
+    setProfile(data);
+    if (!data) {
+      setLoading(false);
+      return;
+    }
+
+    const [followState, gistsResult, followersResult, followingResult, postsResult] = await Promise.all([
+      user
+        ? supabase.from("follows").select("follower_id").eq("follower_id", user.id).eq("following_id", data.id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase.from("posts").select("id", { count: "exact", head: true }).eq("author_id", data.id),
+      supabase.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", data.id),
+      supabase.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", data.id),
+      supabase.from("posts").select("id,body,content_type,media_url,category,created_at").eq("author_id", data.id).order("created_at", { ascending: false }).limit(30),
+    ]);
+
+    setFollowing(!!followState.data);
+    setCounts({
+      gists: gistsResult.count ?? 0,
+      followers: followersResult.count ?? 0,
+      following: followingResult.count ?? 0,
+    });
+    setGists((postsResult.data ?? []) as PublicPost[]);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    load();
+  }, [username]);
+
+  async function toggle() {
+    if (!me) {
+      router.push("/auth");
+      return;
+    }
+    if (me.id === profile.id) return;
+
+    if (following) {
+      const { error } = await supabase
+        .from("follows")
+        .delete()
+        .eq("follower_id", me.id)
+        .eq("following_id", profile.id);
+      if (!error) {
+        setFollowing(false);
+        setCounts((current) => ({ ...current, followers: Math.max(0, current.followers - 1) }));
+      }
+      return;
+    }
+
+    const { error } = await supabase.from("follows").insert({
+      follower_id: me.id,
+      following_id: profile.id,
+    });
+    if (!error) {
+      setFollowing(true);
+      setCounts((current) => ({ ...current, followers: current.followers + 1 }));
+    }
+  }
+
+  if (loading) return <main className="content"><p>Loading profile…</p></main>;
+  if (!profile) return <main className="content"><p>Profile not found.</p></main>;
+
+  return (
+    <main className="profile-page">
+      <header className="simple-header">
+        <Link href="/">‹ Home</Link>
+        <strong>Profile</strong>
+        <span />
+      </header>
+
+      <section className="profile-card">
+        <div className="profile-avatar">{profile.display_name?.[0]?.toUpperCase() ?? "G"}</div>
+        <h1>{profile.display_name ?? "Gista User"}</h1>
+        <p>@{profile.username}</p>
+        <p className="bio">{profile.bio || "A place to talk, share and connect."}</p>
+
+        <div className="profile-stats">
+          <span><b>{counts.gists}</b> Gists</span>
+          <span><b>{counts.followers}</b> Followers</span>
+          <span><b>{counts.following}</b> Following</span>
+        </div>
+
+        {me?.id !== profile.id && (
+          <button className="primary small" onClick={toggle}>
+            {following ? "Unfollow" : "Follow"}
+          </button>
+        )}
+      </section>
+
+      <section className="feed">
+        <h2>{counts.gists} Gists</h2>
+        {gists.length === 0 ? (
+          <p>No Gists yet.</p>
+        ) : (
+          gists.map((post) => (
+            <Link className="post" key={post.id} href={"/gist/" + post.id}>
+              <div className="post-head">
+                <div className="avatar">{profile.display_name?.[0]?.toUpperCase() ?? "G"}</div>
+                <div className="identity">
+                  <strong>{profile.display_name ?? "Gista User"}</strong>
+                  <span>@{profile.username} · {new Date(post.created_at).toLocaleString()}</span>
+                </div>
+                <span className="category">{post.category}</span>
+              </div>
+              {post.content_type === "photo" && post.media_url && (
+                <img src={post.media_url} alt="Gist" style={{ width: "100%", borderRadius: 16, marginTop: 10 }} />
+              )}
+              {post.content_type === "voice" && post.media_url && (
+                <audio controls src={post.media_url} style={{ width: "100%", marginTop: 10 }} />
+              )}
+              {post.body && <p className="post-text">{post.body}</p>}
+            </Link>
+          ))
+        )}
+      </section>
+    </main>
+  );
+}
