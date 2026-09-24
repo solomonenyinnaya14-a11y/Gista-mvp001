@@ -144,8 +144,15 @@ export default function CreatePage() {
         )}
 
         {mode === "photo" && (
-          <div>
-            <input type="file" accept="image/*" onChange={(event) => {
+          <div className="photo-composer">
+            <label className="photo-picker" htmlFor="gist-photo">
+              {photoPreview ? (
+                <img src={photoPreview} alt="Selected Gist" className="photo-preview" />
+              ) : (
+                <div className="photo-empty"><ImagePlus size={32} /><span>Choose a photo</span></div>
+              )}
+            </label>
+            <input id="gist-photo" type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(event) => {
               const file = event.target.files?.[0] ?? null;
               if (file && !["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Use a JPG, PNG, or WebP image."); return; }
               if (file && file.size > 10 * 1024 * 1024) { setError("Gist photos must be 10MB or smaller."); return; }
@@ -153,7 +160,6 @@ export default function CreatePage() {
               setPhoto(file);
               setPhotoPreview(file ? URL.createObjectURL(file) : "");
             }} />
-            {photoPreview && <img src={photoPreview} alt="Selected Gist" style={{ maxWidth: "100%", borderRadius: 16, marginTop: 12 }} />}
           </div>
         )}
 
