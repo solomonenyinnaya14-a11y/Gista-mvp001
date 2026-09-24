@@ -87,48 +87,40 @@ export default function HomePage() {
       .from("posts")
       .select("id,body,content_type,media_url,category,status,created_at,author_id,voice_duration_seconds");
 
+    let followingIds: string[] = [];
+
     if (currentUser) {
-      const [{ data: blocked }, { data: notInterested }] = await Promise.all([
+      const [blockedResult, notInterestedResult, followsResult] = await Promise.all([
         supabase.from("blocks").select("blocked_id").eq("blocker_id", currentUser.id),
         supabase.from("not_interested").select("post_id").eq("user_id", currentUser.id),
+        tab === "Following"
+          ? supabase.from("follows").select("following_id").eq("follower_id", currentUser.id)
+          : Promise.resolve({ data: [] as { following_id: string }[], error: null }),
       ]);
 
-      const blockedIds = (blocked ?? []).map((item: { blocked_id: string }) => item.blocked_id);
-      const hiddenPostIds = (notInterested ?? []).map((item: { post_id: string }) => item.post_id);
-
+      const blockedIds = (blockedResult.data ?? []).map((item: { blocked_id: string }) => item.blocked_id);
+      const hiddenPostIds = (notInterestedResult.data ?? []).map((item: { post_id: string }) => item.post_id);
       if (blockedIds.length) query = query.not("author_id", "in", "(" + blockedIds.join(",") + ")");
       if (hiddenPostIds.length) query = query.not("id", "in", "(" + hiddenPostIds.join(",") + ")");
+
+      if (followsResult.error) {
+        setFeedError(followsResult.error.message);
+        setPosts([]);
+        setLoading(false);
+        return;
+      }
+      followingIds = (followsResult.data ?? []).map((item: { following_id: string }) => item.following_id);
     }
 
     if (tab === "Trending") query = query.eq("status", "trending");
 
     if (tab === "Following") {
-      if (!currentUser) {
+      if (!currentUser || !followingIds.length) {
         setPosts([]);
         setLoading(false);
         return;
       }
-
-      const { data: follows, error: followsError } = await supabase
-        .from("follows")
-        .select("following_id")
-        .eq("follower_id", currentUser.id);
-
-      if (followsError) {
-        setFeedError(followsError.message);
-        setPosts([]);
-        setLoading(false);
-        return;
-      }
-
-      const ids = (follows ?? []).map((item: { following_id: string }) => item.following_id);
-      if (!ids.length) {
-        setPosts([]);
-        setLoading(false);
-        return;
-      }
-
-      query = query.in("author_id", ids);
+      query = query.in("author_id", followingIds);
     }
 
     const { data, error } = await query.order("created_at", { ascending: false }).limit(50);
