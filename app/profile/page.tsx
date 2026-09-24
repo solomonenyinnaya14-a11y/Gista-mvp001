@@ -304,7 +304,10 @@ export default function ProfilePage() {
       </header>
 
       <section className="profile-wrap">
-        <section className="profile-hero">
+        <section className="profile-hero profile-hero-with-cover">
+          <div className="profile-cover" aria-hidden="true">
+            {profile?.avatar_url && <img src={profile.avatar_url} alt="" />}
+          </div>
           <div className="profile-photo-wrap">
             <div className="profile-photo">
               {profile?.avatar_url ? <img src={profile.avatar_url} alt="Profile" /> : <span>{initials}</span>}
@@ -400,7 +403,7 @@ export default function ProfilePage() {
                   )}
 
                   <div className="actions profile-gist-actions">
-                    <button type="button" onClick={() => void toggleLike(gist)} disabled={busy === gist.id + "l"} aria-label="Like Gist">
+                    <button type="button" className={gist.liked ? "liked" : ""} onClick={() => void toggleLike(gist)} disabled={busy === gist.id + "l"} aria-label="Like Gist">
                       <Heart size={18} fill={gist.liked ? "currentColor" : "none"} /> {gist.likes}
                     </button>
                     <Link className="feed-action-link" href={"/gist/" + gist.id}><MessageCircle size={18} /> {gist.responses}</Link>
