@@ -68,7 +68,7 @@ export default function NotificationsPage() {
       if (!active) return;
       const id = data.user?.id ?? null;
       setUserId(id);
-      load(id);
+      load(id ?? undefined);
     });
     return () => { active = false; };
   }, []);
