@@ -7,7 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 
 export default function SavedPage() {
   const supabase = createClient();
-  const [posts, setPosts] = useState<any[]>([]);\n  const [responses, setResponses] = useState<any[]>([]);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [responses, setResponses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
