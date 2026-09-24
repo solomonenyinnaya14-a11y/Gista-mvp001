@@ -236,7 +236,7 @@ export default function GistPage() {
           else {
             const bucket = post.content_type === "photo" ? "gist-media" : post.content_type === "voice" ? "gist-audio" : null;
             const path = bucket ? storagePath(post.media_url, bucket) : null;
-            if (path) await supabase.storage.from(bucket).remove([path]);
+            if (bucket && path) await supabase.storage.from(bucket).remove([path]);
             router.push("/");
           }
         }}>Delete Gist</button>}</div>
