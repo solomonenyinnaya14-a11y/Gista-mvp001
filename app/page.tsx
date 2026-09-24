@@ -175,18 +175,20 @@ export default function HomePage() {
     const saved = new Set((savesResult.data ?? []).map((item: { post_id: string }) => item.post_id));
 
     const authorIds = [...new Set(data.map((post) => post.author_id))];
-    const { data: profileRows, error: profileError } = authorIds.length
-      ? await supabase.from("profiles").select("id,display_name,username,avatar_url").in("id", authorIds)
-      : { data: [], error: null };
+    const [profileResult] = await Promise.all([
+      authorIds.length
+        ? supabase.from("profiles").select("id,display_name,username,avatar_url").in("id", authorIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
 
-    if (profileError) {
-      setFeedError(profileError.message);
+    if (profileResult.error) {
+      setFeedError(profileResult.error.message);
       setPosts([]);
       setLoading(false);
       return;
     }
 
-    const profilesById = new Map((profileRows ?? []).map((item) => [item.id, item as Profile]));
+    const profilesById = new Map((profileResult.data ?? []).map((item) => [item.id, item as Profile]));
     const normalized = data.map((post) => ({
       ...post,
       profiles: profilesById.get(post.author_id) ?? null,
@@ -205,13 +207,17 @@ export default function HomePage() {
     let notificationChannel: ReturnType<typeof supabase.channel> | null = null;
 
     const initialize = async () => {
-      const { data } = await supabase.auth.getUser();
+      const { data: sessionData } = await supabase.auth.getSession();
       if (!active) return;
 
-      const currentUser = data.user ? { id: data.user.id, email: data.user.email } : null;
+      const currentUser = sessionData.session?.user
+        ? { id: sessionData.session.user.id, email: sessionData.session.user.email }
+        : null;
       setUser(currentUser);
       setAuthReady(true);
-      await Promise.all([loadProfile(currentUser), loadNotifications(currentUser)]);
+      void loadProfile(currentUser);
+      void loadNotifications(currentUser);
+      void loadPosts(currentUser);
 
       if (currentUser) {
         notificationChannel = supabase
@@ -238,6 +244,7 @@ export default function HomePage() {
       setAuthReady(true);
       void loadProfile(currentUser);
       void loadNotifications(currentUser);
+      void loadPosts(currentUser);
     });
 
     return () => {
