@@ -1,0 +1,4 @@
+"use client";
+import { Mic, ImagePlus, Type } from "lucide-react";
+import Link from "next/link";
+export default function CreatePage(){return <main className="create-page"><header className="simple-header"><Link href="/">Cancel</Link><strong>Start a Gist</strong><button>Post</button></header><section className="create-card"><div className="avatar">S</div><textarea placeholder="Say something worth sharing…" /><div className="format-row"><button><Type/>Text</button><button><ImagePlus/>Photo</button><button><Mic/>Voice</button></div><select defaultValue=""><option value="" disabled>Choose a category</option>{["Music","Movies / Entertainment","Art","Banter","Fun","Gossip","Sports","Relationships","Business","Technology","Education","Lifestyle","Society","News & Current Events","Opinions","Stories"].map(x=><option key={x}>{x}</option>)}</select></section></main>}
