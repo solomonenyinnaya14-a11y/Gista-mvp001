@@ -36,6 +36,7 @@ export default function GistPage() {
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [replyVoice, setReplyVoice] = useState<Record<string, Blob | null>>({});
   const [replyRecording, setReplyRecording] = useState<string | null>(null);
+  const [replySeconds, setReplySeconds] = useState<Record<string, number>>({});
 
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
@@ -153,6 +154,7 @@ export default function GistPage() {
       const mediaRecorder = new MediaRecorder(stream);
       replyRecorder.current = mediaRecorder;
       let elapsed = 0;
+      setReplySeconds((current) => ({ ...current, [responseId]: 0 }));
       mediaRecorder.ondataavailable = (event) => { if (event.data.size) replyChunks.current.push(event.data); };
       mediaRecorder.onstop = () => {
         stream.getTracks().forEach((track) => track.stop());
@@ -160,7 +162,7 @@ export default function GistPage() {
       };
       mediaRecorder.start();
       setReplyRecording(responseId);
-      replyTimer.current = setInterval(() => { elapsed += 1; if (elapsed >= 60) stopReplyVoice(); }, 1000);
+      replyTimer.current = setInterval(() => { elapsed += 1; setReplySeconds((current) => ({ ...current, [responseId]: elapsed })); if (elapsed >= 60) stopReplyVoice(); }, 1000);
     } catch {
       setError("Microphone access is required.");
     }
@@ -188,6 +190,7 @@ export default function GistPage() {
       content_type: voiceReply ? "voice" : "text",
       body: voiceReply ? null : body,
       media_url,
+      voice_duration_seconds: voiceReply ? (replySeconds[response.id] ?? 0) : null,
     });
 
     if (insertError) setError(insertError.message);
@@ -275,6 +278,7 @@ export default function GistPage() {
             {response.body && <p className="post-text">{response.body}</p>}
             {response.content_type === "voice" && response.media_url && <audio controls src={response.media_url} />}
             <button className="response-reply" onClick={() => setOpenReply(openReply === response.id ? null : response.id)}>Reply</button>
+            {userId && <button className="response-reply" onClick={async () => { const reason = prompt("Why are you reporting this response?"); if (!reason) return; const result = await supabase.from("reports").insert({ reporter_id: userId, response_id: response.id, reason }); if (result.error) setError(result.error.message); else setError("Response report submitted."); }}>Report</button>}
             {userId && <button className="response-reply" onClick={async () => {
               const saved = savedResponses.has(response.id);
               const result = saved
@@ -291,11 +295,11 @@ export default function GistPage() {
             {openReply === response.id && (
               <div className="reply-box">
                 <textarea value={replyText[response.id] ?? ""} onChange={(event) => setReplyText((current) => ({ ...current, [response.id]: event.target.value }))} placeholder="Write a reply…" />
-                {replyRecording === response.id ? <button type="button" onClick={stopReplyVoice}>Stop voice</button> : <button type="button" onClick={() => startReplyVoice(response.id)}>Voice reply</button>}
+                {replyRecording === response.id ? <button type="button" onClick={stopReplyVoice}>Stop voice ({replySeconds[response.id] ?? 0}s / 60s)</button> : <button type="button" onClick={() => startReplyVoice(response.id)}>Voice reply</button>}
                 <button className="primary small" onClick={() => postReply(response)}>Post reply</button>
               </div>
             )}
-            {response.replies.length > 0 && <div className="replies">{response.replies.map((reply) => <div className="reply" key={reply.id}><strong>{reply.profiles?.display_name ?? "Gista User"}</strong><span> @{reply.profiles?.username ?? "user"}</span>{reply.body && <p>{reply.body}</p>}{reply.content_type === "voice" && reply.media_url && <audio controls src={reply.media_url} />}{userId === reply.author_id && <button className="response-reply" onClick={async () => { if (!confirm("Delete this reply?")) return; await supabase.from("replies").delete().eq("id", reply.id).eq("author_id", userId); await load(); }}>Delete</button>}</div>)}</div>}
+            {response.replies.length > 0 && <div className="replies">{response.replies.map((reply) => <div className="reply" key={reply.id}><strong>{reply.profiles?.display_name ?? "Gista User"}</strong><span> @{reply.profiles?.username ?? "user"}</span>{reply.body && <p>{reply.body}</p>}{reply.content_type === "voice" && reply.media_url && <audio controls src={reply.media_url} />}{userId && <button className="response-reply" onClick={async () => { const reason = prompt("Why are you reporting this reply?"); if (!reason) return; const result = await supabase.from("reports").insert({ reporter_id: userId, reply_id: reply.id, reason }); if (result.error) setError(result.error.message); else setError("Reply report submitted."); }}>Report</button>}{userId === reply.author_id && <button className="response-reply" onClick={async () => { if (!confirm("Delete this reply?")) return; const result = await supabase.from("replies").delete().eq("id", reply.id).eq("author_id", userId); if (result.error) setError(result.error.message); else await load(); }}>Delete</button>}</div>)}</div>}
           </article>
         ))}
       </section>
