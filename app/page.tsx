@@ -87,48 +87,40 @@ export default function HomePage() {
       .from("posts")
       .select("id,body,content_type,media_url,category,status,created_at,author_id,voice_duration_seconds");
 
+    let followingIds: string[] = [];
+
     if (currentUser) {
-      const [{ data: blocked }, { data: notInterested }] = await Promise.all([
+      const [blockedResult, notInterestedResult, followsResult] = await Promise.all([
         supabase.from("blocks").select("blocked_id").eq("blocker_id", currentUser.id),
         supabase.from("not_interested").select("post_id").eq("user_id", currentUser.id),
+        tab === "Following"
+          ? supabase.from("follows").select("following_id").eq("follower_id", currentUser.id)
+          : Promise.resolve({ data: [] as { following_id: string }[], error: null }),
       ]);
 
-      const blockedIds = (blocked ?? []).map((item: { blocked_id: string }) => item.blocked_id);
-      const hiddenPostIds = (notInterested ?? []).map((item: { post_id: string }) => item.post_id);
-
+      const blockedIds = (blockedResult.data ?? []).map((item: { blocked_id: string }) => item.blocked_id);
+      const hiddenPostIds = (notInterestedResult.data ?? []).map((item: { post_id: string }) => item.post_id);
       if (blockedIds.length) query = query.not("author_id", "in", "(" + blockedIds.join(",") + ")");
       if (hiddenPostIds.length) query = query.not("id", "in", "(" + hiddenPostIds.join(",") + ")");
+
+      if (followsResult.error) {
+        setFeedError(followsResult.error.message);
+        setPosts([]);
+        setLoading(false);
+        return;
+      }
+      followingIds = (followsResult.data ?? []).map((item: { following_id: string }) => item.following_id);
     }
 
     if (tab === "Trending") query = query.eq("status", "trending");
 
     if (tab === "Following") {
-      if (!currentUser) {
+      if (!currentUser || !followingIds.length) {
         setPosts([]);
         setLoading(false);
         return;
       }
-
-      const { data: follows, error: followsError } = await supabase
-        .from("follows")
-        .select("following_id")
-        .eq("follower_id", currentUser.id);
-
-      if (followsError) {
-        setFeedError(followsError.message);
-        setPosts([]);
-        setLoading(false);
-        return;
-      }
-
-      const ids = (follows ?? []).map((item: { following_id: string }) => item.following_id);
-      if (!ids.length) {
-        setPosts([]);
-        setLoading(false);
-        return;
-      }
-
-      query = query.in("author_id", ids);
+      query = query.in("author_id", followingIds);
     }
 
     const { data, error } = await query.order("created_at", { ascending: false }).limit(50);
@@ -175,18 +167,20 @@ export default function HomePage() {
     const saved = new Set((savesResult.data ?? []).map((item: { post_id: string }) => item.post_id));
 
     const authorIds = [...new Set(data.map((post) => post.author_id))];
-    const { data: profileRows, error: profileError } = authorIds.length
-      ? await supabase.from("profiles").select("id,display_name,username,avatar_url").in("id", authorIds)
-      : { data: [], error: null };
+    const [profileResult] = await Promise.all([
+      authorIds.length
+        ? supabase.from("profiles").select("id,display_name,username,avatar_url").in("id", authorIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
 
-    if (profileError) {
-      setFeedError(profileError.message);
+    if (profileResult.error) {
+      setFeedError(profileResult.error.message);
       setPosts([]);
       setLoading(false);
       return;
     }
 
-    const profilesById = new Map((profileRows ?? []).map((item) => [item.id, item as Profile]));
+    const profilesById = new Map((profileResult.data ?? []).map((item) => [item.id, item as Profile]));
     const normalized = data.map((post) => ({
       ...post,
       profiles: profilesById.get(post.author_id) ?? null,
@@ -205,13 +199,16 @@ export default function HomePage() {
     let notificationChannel: ReturnType<typeof supabase.channel> | null = null;
 
     const initialize = async () => {
-      const { data } = await supabase.auth.getUser();
+      const { data: sessionData } = await supabase.auth.getSession();
       if (!active) return;
 
-      const currentUser = data.user ? { id: data.user.id, email: data.user.email } : null;
+      const currentUser = sessionData.session?.user
+        ? { id: sessionData.session.user.id, email: sessionData.session.user.email }
+        : null;
       setUser(currentUser);
       setAuthReady(true);
-      await Promise.all([loadProfile(currentUser), loadNotifications(currentUser)]);
+      void loadProfile(currentUser);
+      void loadNotifications(currentUser);
 
       if (currentUser) {
         notificationChannel = supabase

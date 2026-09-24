@@ -14,6 +14,7 @@ type Profile = {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  cover_url: string | null;
 };
 
 type Gist = {
@@ -49,6 +50,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [coverUploading, setCoverUploading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -57,7 +59,8 @@ export default function ProfilePage() {
     setLoading(true);
     setError("");
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) {
       router.push("/auth");
       return;
@@ -65,7 +68,7 @@ export default function ProfilePage() {
 
     let { data, error: profileError } = await supabase
       .from("profiles")
-      .select("id,username,display_name,bio,avatar_url")
+      .select("id,username,display_name,bio,avatar_url,cover_url")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -78,7 +81,7 @@ export default function ProfilePage() {
           display_name: String(user.user_metadata?.display_name ?? "Gista User"),
           username: preferred,
         })
-        .select("id,username,display_name,bio,avatar_url")
+        .select("id,username,display_name,bio,avatar_url,cover_url")
         .single();
       data = created;
       profileError = createError;
@@ -200,6 +203,61 @@ export default function ProfilePage() {
     setAvatarUploading(false);
   }
 
+  async function uploadCover(file: File) {
+    setError("");
+    setMessage("");
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Use a JPG, PNG, or WebP image.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setError("Cover photos must be 8MB or smaller.");
+      return;
+    }
+
+    setCoverUploading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUser = session?.user ?? null;
+    if (!currentUser) {
+      setCoverUploading(false);
+      router.push("/auth");
+      return;
+    }
+
+    const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+    const path = currentUser.id + "/cover-" + crypto.randomUUID() + "." + extension;
+    const upload = await supabase.storage.from("profile-media").upload(path, file, {
+      contentType: file.type,
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+    if (upload.error) {
+      setError(upload.error.message);
+      setCoverUploading(false);
+      return;
+    }
+
+    const publicUrl = supabase.storage.from("profile-media").getPublicUrl(path).data.publicUrl;
+    const { data: updated, error: updateError } = await supabase
+      .from("profiles")
+      .update({ cover_url: publicUrl })
+      .eq("id", currentUser.id)
+      .select("id,username,display_name,bio,avatar_url,cover_url")
+      .single();
+
+    if (updateError || !updated) {
+      await supabase.storage.from("profile-media").remove([path]);
+      setError(updateError?.message ?? "Cover photo could not be saved.");
+    } else {
+      setProfile(updated as Profile);
+      setMessage("Cover photo updated.");
+    }
+
+    setCoverUploading(false);
+  }
+
   async function saveProfile() {
     setError("");
     setMessage("");
@@ -226,7 +284,7 @@ export default function ProfilePage() {
       .from("profiles")
       .update({ display_name: cleanName, username: cleanUsername, bio: cleanBio || null })
       .eq("id", user.id)
-      .select("id,username,display_name,bio,avatar_url")
+      .select("id,username,display_name,bio,avatar_url,cover_url")
       .single();
 
     if (updateError || !updated) {
@@ -305,8 +363,23 @@ export default function ProfilePage() {
 
       <section className="profile-wrap">
         <section className="profile-hero profile-hero-with-cover">
-          <div className="profile-cover" aria-hidden="true">
-            {profile?.avatar_url && <img src={profile.avatar_url} alt="" />}
+          <div className="profile-cover">
+            {profile?.cover_url && <img src={profile.cover_url} alt="" />}
+            <label className="profile-cover-camera" aria-label="Change cover photo">
+              <Camera size={16} />
+              <span>{profile?.cover_url ? "Change cover" : "Add cover"}</span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                hidden
+                disabled={coverUploading}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void uploadCover(file);
+                  event.currentTarget.value = "";
+                }}
+              />
+            </label>
           </div>
           <div className="profile-photo-wrap">
             <div className="profile-photo">
@@ -347,7 +420,7 @@ export default function ProfilePage() {
 
           {(avatarUploading || message || error) && (
             <div className={error ? "profile-feedback error" : "profile-feedback"}>
-              {avatarUploading ? "Uploading profile photo…" : message || error}
+              {avatarUploading ? "Uploading profile photo…" : coverUploading ? "Uploading cover photo…" : message || error}
             </div>
           )}
         </section>

@@ -13,6 +13,7 @@ type Profile = {
   display_name: string | null;
   bio: string | null;
   avatar_url: string | null;
+  cover_url: string | null;
   is_private: boolean;
 };
 
@@ -50,7 +51,7 @@ export default function PublicProfile() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id,username,display_name,bio,avatar_url,is_private")
+      .select("id,username,display_name,bio,avatar_url,cover_url,is_private")
       .eq("username", username)
       .single();
 
@@ -203,6 +204,9 @@ export default function PublicProfile() {
       </header>
 
       <section className="profile-card">
+        <div className="profile-cover">
+          {profile.cover_url && <img src={profile.cover_url} alt="" />}
+        </div>
         <div className="profile-avatar">
           {profile.avatar_url
             ? <img src={profile.avatar_url} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
