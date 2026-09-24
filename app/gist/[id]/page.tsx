@@ -55,23 +55,37 @@ export default function GistPage() {
 
   async function load(currentUserId: string | null = userId) {
     const [postResult, responseResult, likeResult, responseSaveResult] = await Promise.all([
-      supabase.from("posts").select("id,author_id,body,content_type,media_url,voice_duration_seconds,category,status,created_at,profiles(display_name,username)").eq("id", id).single(),
-      supabase.from("responses").select("id,body,content_type,media_url,voice_duration_seconds,created_at,author_id,profiles(display_name,username),replies(id,body,content_type,media_url,voice_duration_seconds,created_at,author_id,profiles(display_name,username))").eq("post_id", id).order("created_at", { ascending: true }),
+      supabase.from("posts").select("id,author_id,body,content_type,media_url,voice_duration_seconds,category,status,created_at").eq("id", id).single(),
+      supabase.from("responses").select("id,body,content_type,media_url,voice_duration_seconds,created_at,author_id,replies(id,body,content_type,media_url,voice_duration_seconds,created_at,author_id)").eq("post_id", id).order("created_at", { ascending: true }),
       supabase.from("likes").select("post_id", { count: "exact", head: true }).eq("post_id", id),
       currentUserId ? supabase.from("response_saves").select("response_id").eq("user_id", currentUserId) : Promise.resolve({ data: [] as { response_id: string }[] }),
     ]);
 
     if (postResult.error) setError(postResult.error.message);
-    const normalizeProfile = (profile: RawProfile): Profile | null => Array.isArray(profile) ? profile[0] ?? null : profile ?? null;
-    const rawPost = postResult.data as (Omit<Post, "profiles"> & { profiles: RawProfile }) | null;
-    setPost(rawPost ? { ...rawPost, profiles: normalizeProfile(rawPost.profiles) } : null);
+    const rawPost = postResult.data as Omit<Post, "profiles"> | null;
+    const rawResponses = (responseResult.data ?? []) as Array<Omit<Response, "profiles" | "replies"> & { replies: Omit<Reply, "profiles">[] }>;
+    const authorIds = [
+      ...(rawPost?.author_id ? [rawPost.author_id] : []),
+      ...rawResponses.map((item) => item.author_id),
+      ...rawResponses.flatMap((item) => (item.replies ?? []).map((reply) => reply.author_id)),
+    ];
+    const uniqueAuthorIds = [...new Set(authorIds)];
+    const { data: profileRows, error: profileError } = uniqueAuthorIds.length
+      ? await supabase.from("profiles").select("id,display_name,username").in("id", uniqueAuthorIds)
+      : { data: [], error: null };
+    if (profileError) {
+      setError(profileError.message);
+      setLoading(false);
+      return;
+    }
+    const profilesById = new Map((profileRows ?? []).map((item) => [item.id, item as Profile]));
+    setPost(rawPost ? { ...rawPost, profiles: profilesById.get(rawPost.author_id) ?? null } : null);
     setLikeCount(likeResult.count ?? 0);
     setSavedResponses(new Set((responseSaveResult.data ?? []).map((item: { response_id: string }) => item.response_id)));
-    const rawResponses = (responseResult.data ?? []) as RawResponse[];
     setResponses(rawResponses.map((item) => ({
       ...item,
-      profiles: normalizeProfile(item.profiles),
-      replies: (item.replies ?? []).map((reply) => ({ ...reply, profiles: normalizeProfile(reply.profiles) })),
+      profiles: profilesById.get(item.author_id) ?? null,
+      replies: (item.replies ?? []).map((reply) => ({ ...reply, profiles: profilesById.get(reply.author_id) ?? null })),
     })));
     setLoading(false);
   }

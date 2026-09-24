@@ -253,7 +253,7 @@ export default function PublicProfile() {
               )}
 
               <div className="actions">
-                <button type="button" onClick={() => void toggleLike(post)} disabled={busy === post.id + "l"} aria-label="Like Gist"><Heart size={18} fill={post.liked ? "currentColor" : "none"} /> {post.likes}</button>
+                <button type="button" className={post.liked ? "liked" : ""} onClick={() => void toggleLike(post)} disabled={busy === post.id + "l"} aria-label="Like Gist"><Heart size={18} fill={post.liked ? "currentColor" : "none"} /> {post.likes}</button>
                 <Link className="feed-action-link" href={"/gist/" + post.id}><MessageCircle size={18} /> {post.responses}</Link>
                 <button type="button" onClick={() => share(post)} aria-label="Share Gist"><Share2 size={18} /></button>
                 <button type="button" onClick={() => void toggleSave(post)} disabled={busy === post.id + "s"} aria-label="Save Gist"><Bookmark size={18} fill={post.saved ? "currentColor" : "none"} /></button>

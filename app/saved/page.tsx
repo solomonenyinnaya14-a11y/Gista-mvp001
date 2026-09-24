@@ -8,16 +8,12 @@ import { createClient } from "@/lib/supabase/client";
 type Profile = { display_name: string | null; username: string | null };
 type SavedPost = {
   id: string; body: string | null; content_type: string; media_url: string | null;
-  category: string; created_at: string; profiles: Profile | Profile[] | null;
+  category: string; created_at: string; author_id: string; profiles: Profile | null;
 };
 type SavedResponse = {
   id: string; post_id: string; body: string | null; content_type: string;
-  media_url: string | null; created_at: string; profiles: Profile | Profile[] | null;
+  media_url: string | null; created_at: string; author_id: string; profiles: Profile | null;
 };
-
-function profile(value: Profile | Profile[] | null): Profile | null {
-  return Array.isArray(value) ? value[0] ?? null : value;
-}
 
 export default function SavedPage() {
   const supabase = createClient();
@@ -31,14 +27,35 @@ export default function SavedPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { window.location.assign("/auth"); return; }
 
-      const [postResult, responseResult] = await Promise.all([
-        supabase.from("saves").select("post_id,posts(id,body,content_type,media_url,category,created_at,profiles(display_name,username))").eq("user_id", user.id).order("created_at", { ascending: false }),
-        supabase.from("response_saves").select("response_id,responses(id,post_id,body,content_type,media_url,created_at,profiles(display_name,username))").eq("user_id", user.id).order("created_at", { ascending: false }),
+      const [postSaveResult, responseSaveResult] = await Promise.all([
+        supabase.from("saves").select("post_id,created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
+        supabase.from("response_saves").select("response_id,created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
       ]);
       if (cancelled) return;
 
-      setPosts((postResult.data ?? []).map((item: { posts: SavedPost | SavedPost[] | null }) => Array.isArray(item.posts) ? item.posts[0] : item.posts).filter((item): item is SavedPost => Boolean(item)));
-      setResponses((responseResult.data ?? []).map((item: { responses: SavedResponse | SavedResponse[] | null }) => Array.isArray(item.responses) ? item.responses[0] : item.responses).filter((item): item is SavedResponse => Boolean(item)));
+      const postIds = (postSaveResult.data ?? []).map((item) => item.post_id);
+      const responseIds = (responseSaveResult.data ?? []).map((item) => item.response_id);
+
+      const [{ data: postRows, error: postError }, { data: responseRows, error: responseError }] = await Promise.all([
+        postIds.length ? supabase.from("posts").select("id,body,content_type,media_url,category,created_at,author_id").in("id", postIds) : Promise.resolve({ data: [], error: null }),
+        responseIds.length ? supabase.from("responses").select("id,post_id,body,content_type,media_url,created_at,author_id").in("id", responseIds) : Promise.resolve({ data: [], error: null }),
+      ]);
+      if (postError || responseError) {
+        setLoading(false);
+        return;
+      }
+
+      const authorIds = [...new Set([
+        ...(postRows ?? []).map((item) => item.author_id),
+        ...(responseRows ?? []).map((item) => item.author_id),
+      ])];
+      const { data: profileRows } = authorIds.length
+        ? await supabase.from("profiles").select("id,display_name,username").in("id", authorIds)
+        : { data: [] };
+      const profilesById = new Map((profileRows ?? []).map((item) => [item.id, item as Profile]));
+
+      setPosts((postRows ?? []).map((item) => ({ ...item, profiles: profilesById.get(item.author_id) ?? null })) as SavedPost[]);
+      setResponses((responseRows ?? []).map((item) => ({ ...item, profiles: profilesById.get(item.author_id) ?? null })) as SavedResponse[]);
       setLoading(false);
     }
     load();

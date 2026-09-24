@@ -38,3 +38,11 @@
 .profile-gist-voice{cursor:default}
 .profile-gist-voice .voice-note{margin-top:8px}
 .profile-gist-actions{margin-top:12px}
+
+.actions button.liked,.actions button.liked svg{color:#7c3aed}
+.profile-cover{position:relative;width:100%;height:150px;overflow:hidden;background:linear-gradient(135deg,#7c3aed,#c4b5fd)}
+.profile-cover img{width:100%;height:100%;object-fit:cover;filter:blur(1px) saturate(.9)}
+.profile-cover::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,#00000018,#7c3aed55)}
+.profile-hero-with-cover{padding-top:0}
+.profile-hero-with-cover .profile-photo-wrap{margin-top:-52px;position:relative;z-index:2}
+@media(max-width:480px){.profile-cover{height:135px}.profile-hero-with-cover .profile-photo-wrap{margin-top:-48px}}
