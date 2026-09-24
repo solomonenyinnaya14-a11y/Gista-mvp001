@@ -344,6 +344,7 @@ export default function GistPage() {
         {responses.length === 0 ? <p>No responses yet. Start the Gist.</p> : responses.map((response) => (
           <article className="post" key={response.id}>
             <div className="post-head"><div className="avatar">{response.profiles?.display_name?.[0]?.toUpperCase() ?? "G"}</div><div className="identity"><strong>{response.profiles?.display_name ?? "Gista User"}</strong><span>@{response.profiles?.username ?? "user"} · {new Date(response.created_at).toLocaleString()}</span></div></div>
+            {response.content_type === "photo" && response.media_url && <img src={response.media_url} alt="Response" className="response-media" />}
             {response.body && <p className="post-text">{response.body}</p>}
             {response.content_type === "voice" && response.media_url && <VoiceNote src={response.media_url} durationHint={response.voice_duration_seconds} />}
             <button className="response-reply" onClick={() => setOpenReply(openReply === response.id ? null : response.id)}>Reply</button>
@@ -365,8 +366,9 @@ export default function GistPage() {
               const result = await supabase.from("responses").delete().eq("id", response.id).eq("author_id", userId);
               if (result.error) setError(result.error.message);
               else {
-                const path = storagePath(response.media_url, "gist-audio");
-                if (path) await supabase.storage.from("gist-audio").remove([path]);
+                const bucket = response.content_type === "photo" ? "gist-media" : response.content_type === "voice" ? "gist-audio" : null;
+                const path = bucket ? storagePath(response.media_url, bucket) : null;
+                if (bucket && path) await supabase.storage.from(bucket).remove([path]);
                 await load();
               }
             }}>Delete</button>}
@@ -377,13 +379,14 @@ export default function GistPage() {
                 <button className="primary small" onClick={() => postReply(response)}>Post reply</button>
               </div>
             )}
-            {response.replies.length > 0 && <div className="replies">{response.replies.map((reply) => <div className="reply" key={reply.id}><strong>{reply.profiles?.display_name ?? "Gista User"}</strong><span> @{reply.profiles?.username ?? "user"}</span>{reply.body && <p>{reply.body}</p>}{reply.content_type === "voice" && reply.media_url && <VoiceNote src={reply.media_url} durationHint={reply.voice_duration_seconds} />}{userId && <button className="response-reply" onClick={async () => { const reason = prompt("Why are you reporting this reply?"); if (!reason) return; const result = await supabase.from("reports").insert({ reporter_id: userId, reply_id: reply.id, reason }); if (result.error) setError(result.error.message); else setError("Reply report submitted."); }}>Report</button>}{userId === reply.author_id && <button className="response-reply" onClick={async () => {
+            {response.replies.length > 0 && <div className="replies">{response.replies.map((reply) => <div className="reply" key={reply.id}><strong>{reply.profiles?.display_name ?? "Gista User"}</strong><span> @{reply.profiles?.username ?? "user"}</span>{reply.content_type === "photo" && reply.media_url && <img src={reply.media_url} alt="Reply" className="response-media" />}{reply.body && <p>{reply.body}</p>}{reply.content_type === "voice" && reply.media_url && <VoiceNote src={reply.media_url} durationHint={reply.voice_duration_seconds} />}{userId && <button className="response-reply" onClick={async () => { const reason = prompt("Why are you reporting this reply?"); if (!reason) return; const result = await supabase.from("reports").insert({ reporter_id: userId, reply_id: reply.id, reason }); if (result.error) setError(result.error.message); else setError("Reply report submitted."); }}>Report</button>}{userId === reply.author_id && <button className="response-reply" onClick={async () => {
                   if (!confirm("Delete this reply?")) return;
                   const result = await supabase.from("replies").delete().eq("id", reply.id).eq("author_id", userId);
                   if (result.error) setError(result.error.message);
                   else {
-                    const path = storagePath(reply.media_url, "gist-audio");
-                    if (path) await supabase.storage.from("gist-audio").remove([path]);
+                    const bucket = reply.content_type === "photo" ? "gist-media" : reply.content_type === "voice" ? "gist-audio" : null;
+                    const path = bucket ? storagePath(reply.media_url, bucket) : null;
+                    if (bucket && path) await supabase.storage.from(bucket).remove([path]);
                     await load();
                   }
                 }}>Delete</button>}</div>)}</div>}
