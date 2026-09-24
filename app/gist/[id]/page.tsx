@@ -25,7 +25,7 @@ export default function GistPage() {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
-  const [likeCount, setLikeCount] = useState(0);
+  const [likeCount, setLikeCount] = useState(0);\n  const [savedResponses, setSavedResponses] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [now] = useState(() => Date.now());
@@ -44,17 +44,17 @@ export default function GistPage() {
   const replyTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   async function load() {
-    const [postResult, responseResult, likeResult] = await Promise.all([
+    const [postResult, responseResult, likeResult, responseSaveResult] = await Promise.all([
       supabase.from("posts").select("id,author_id,body,content_type,media_url,category,status,created_at,profiles(display_name,username)").eq("id", id).single(),
       supabase.from("responses").select("id,body,content_type,media_url,created_at,author_id,profiles(display_name,username),replies(id,body,content_type,media_url,created_at,author_id,profiles(display_name,username))").eq("post_id", id).order("created_at", { ascending: true }),
-      supabase.from("likes").select("post_id", { count: "exact", head: true }).eq("post_id", id),
+      supabase.from("likes").select("post_id", { count: "exact", head: true }).eq("post_id", id),\n      userId ? supabase.from("response_saves").select("response_id").eq("user_id", userId) : Promise.resolve({ data: [] as { response_id: string }[] }),
     ]);
 
     if (postResult.error) setError(postResult.error.message);
     const normalizeProfile = (profile: RawProfile): Profile | null => Array.isArray(profile) ? profile[0] ?? null : profile ?? null;
     const rawPost = postResult.data as (Omit<Post, "profiles"> & { profiles: RawProfile }) | null;
     setPost(rawPost ? { ...rawPost, profiles: normalizeProfile(rawPost.profiles) } : null);
-    setLikeCount(likeResult.count ?? 0);
+    setLikeCount(likeResult.count ?? 0);\n    setSavedResponses(new Set((responseSaveResult.data ?? []).map((item: { response_id: string }) => item.response_id)));
     const rawResponses = (responseResult.data ?? []) as RawResponse[];
     setResponses(rawResponses.map((item) => ({
       ...item,
