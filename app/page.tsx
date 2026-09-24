@@ -83,7 +83,7 @@ export default function HomePage() {
     setLoading(true);
     setFeedError("");
 
-    let query = supabase
+    const query = supabase
       .from("posts")
       .select("id,body,content_type,media_url,category,status,created_at,author_id,voice_duration_seconds")
       .order("created_at", { ascending: false })
