@@ -232,8 +232,18 @@ export default function GistPage() {
       {menu && (
         <div className="action-menu">
           <button onClick={async () => { const reason = prompt("Why are you reporting this Gist?"); if (!reason || !userId) return; await supabase.from("reports").insert({ reporter_id: userId, post_id: id, reason }); setMenu(false); setError("Report submitted."); }}>Report Gist</button>
-          <button onClick={async () => { if (!userId) return; const result = await supabase.from("blocks").insert({ blocker_id: userId, blocked_id: post.author_id }); if (!result.error) router.push("/"); }}>Block author</button>
-          <button onClick={() => setMenu(false)}>Not Interested</button>
+          <button onClick={async () => {
+            if (!userId) { router.push("/auth"); return; }
+            const result = await supabase.from("blocks").insert({ blocker_id: userId, blocked_id: post.author_id });
+            if (result.error) setError(result.error.message);
+            else { setMenu(false); router.push("/"); }
+          }}>Block author</button>
+          <button onClick={async () => {
+            if (!userId) { router.push("/auth"); return; }
+            const result = await supabase.from("not_interested").insert({ user_id: userId, post_id: id });
+            if (result.error && result.error.code !== "23505") setError(result.error.message);
+            else { setMenu(false); router.push("/"); }
+          }}>Not Interested</button>
         </div>
       )}
 
