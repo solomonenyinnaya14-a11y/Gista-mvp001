@@ -17,6 +17,16 @@ export default function HomePage(){
  const loadPosts=useCallback(async(currentUser:any)=>{
   setLoading(true);
   let query=supabase.from("posts").select("id,body,content_type,media_url,category,status,created_at,author_id,profiles(display_name,username,avatar_url)");
+  if(currentUser){
+   const [{data:blocked},{data:notInterested}]=await Promise.all([
+    supabase.from("blocks").select("blocked_id").eq("blocker_id",currentUser.id),
+    supabase.from("not_interested").select("post_id").eq("user_id",currentUser.id)
+   ]);
+   const blockedIds=(blocked??[]).map((x:any)=>x.blocked_id);
+   const hiddenPostIds=(notInterested??[]).map((x:any)=>x.post_id);
+   if(blockedIds.length) query=query.not("author_id","in",`(${blockedIds.join(",")})`);
+   if(hiddenPostIds.length) query=query.not("id","in",`(${hiddenPostIds.join(",")})`);
+  }
   if(tab==="Trending") query=query.eq("status","trending");
   if(tab==="Following"){
    if(!currentUser){setPosts([]);setLoading(false);return;}
