@@ -1,14 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Camera, Check, Settings, UserRound } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Bookmark, Camera, Check, Heart, MessageCircle, Settings, Share2, UserRound } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { signOut } from "@/lib/auth";
 import VoiceNote from "@/components/VoiceNote";
 
-type Profile = { id: string; username: string | null; display_name: string | null; bio: string | null; avatar_url: string | null };
-type Gist = { id: string; content_type: string; body: string | null; media_url: string | null; category: string; status: string; created_at: string; voice_duration_seconds?: number | null };
+type Profile = {
+  id: string;
+  username: string | null;
+  display_name: string | null;
+  bio: string | null;
+  avatar_url: string | null;
+};
+
+type Gist = {
+  id: string;
+  content_type: string;
+  body: string | null;
+  media_url: string | null;
+  category: string;
+  status: string;
+  created_at: string;
+  voice_duration_seconds: number | null;
+  likes: number;
+  responses: number;
+  liked: boolean;
+  saved: boolean;
+};
 
 function safeUsername(value: string) {
   const cleaned = value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 30);
@@ -16,7 +37,8 @@ function safeUsername(value: string) {
 }
 
 export default function ProfilePage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [edit, setEdit] = useState(false);
   const [displayName, setDisplayName] = useState("");
@@ -27,15 +49,17 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
   async function loadProfile() {
     setLoading(true);
     setError("");
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      window.location.href = "/auth";
+      router.push("/auth");
       return;
     }
 
@@ -66,29 +90,66 @@ export default function ProfilePage() {
       return;
     }
 
-    const [{ count: gistsCount }, { count: followersCount }, { count: followingCount }, ownGists] = await Promise.all([
+    const [gistsResult, followersResult, followingResult, ownGistsResult] = await Promise.all([
       supabase.from("posts").select("id", { count: "exact", head: true }).eq("author_id", user.id),
       supabase.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", user.id),
       supabase.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", user.id),
       supabase.from("posts").select("id,content_type,body,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", user.id).order("created_at", { ascending: false }).limit(30),
     ]);
 
+    const ownGists = (ownGistsResult.data ?? []) as Array<Omit<Gist, "likes" | "responses" | "liked" | "saved">>;
+    const postIds = ownGists.map((gist) => gist.id);
+
+    let likeRows: Array<{ post_id: string; user_id: string }> = [];
+    let responseRows: Array<{ post_id: string }> = [];
+    let saveRows: Array<{ post_id: string }> = [];
+
+    if (postIds.length) {
+      const [likesResult, responsesResult, savesResult] = await Promise.all([
+        supabase.from("likes").select("post_id,user_id").in("post_id", postIds),
+        supabase.from("responses").select("post_id").in("post_id", postIds),
+        supabase.from("saves").select("post_id").eq("user_id", user.id).in("post_id", postIds),
+      ]);
+      likeRows = (likesResult.data ?? []) as Array<{ post_id: string; user_id: string }>;
+      responseRows = (responsesResult.data ?? []) as Array<{ post_id: string }>;
+      saveRows = (savesResult.data ?? []) as Array<{ post_id: string }>;
+    }
+
+    const likeCounts = Object.fromEntries(postIds.map((postId) => [postId, 0]));
+    const responseCounts = Object.fromEntries(postIds.map((postId) => [postId, 0]));
+    likeRows.forEach((row) => { likeCounts[row.post_id] = (likeCounts[row.post_id] ?? 0) + 1; });
+    responseRows.forEach((row) => { responseCounts[row.post_id] = (responseCounts[row.post_id] ?? 0) + 1; });
+
+    const liked = new Set(likeRows.filter((row) => row.user_id === user.id).map((row) => row.post_id));
+    const saved = new Set(saveRows.map((row) => row.post_id));
+
     setProfile(data as Profile);
     setDisplayName(data.display_name ?? "");
     setUsername(data.username ?? "");
     setBio(data.bio ?? "");
-    setStats({ gists: gistsCount ?? 0, followers: followersCount ?? 0, following: followingCount ?? 0 });
-    setGists((ownGists.data ?? []) as Gist[]);
+    setStats({
+      gists: gistsResult.count ?? 0,
+      followers: followersResult.count ?? 0,
+      following: followingResult.count ?? 0,
+    });
+    setGists(ownGists.map((gist) => ({
+      ...gist,
+      likes: likeCounts[gist.id] ?? 0,
+      responses: responseCounts[gist.id] ?? 0,
+      liked: liked.has(gist.id),
+      saved: saved.has(gist.id),
+    })));
     setLoading(false);
   }
 
   useEffect(() => {
     void loadProfile();
-  }, []);
+  }, [supabase]);
 
   async function uploadAvatar(file: File) {
     setError("");
     setMessage("");
+
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
       setError("Use a JPG, PNG, or WebP image.");
       return;
@@ -102,7 +163,7 @@ export default function ProfilePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setAvatarUploading(false);
-      window.location.href = "/auth";
+      router.push("/auth");
       return;
     }
 
@@ -135,34 +196,29 @@ export default function ProfilePage() {
       setProfile(updated as Profile);
       setMessage("Profile photo updated.");
     }
+
     setAvatarUploading(false);
   }
 
   async function saveProfile() {
     setError("");
     setMessage("");
+
     const cleanName = displayName.trim();
     const cleanUsername = username.trim().replace(/^@+/, "").toLowerCase();
     const cleanBio = bio.trim();
 
-    if (!cleanName) {
-      setError("Display name is required.");
-      return;
-    }
+    if (!cleanName) return setError("Display name is required.");
     if (!/^[a-z0-9_]{3,30}$/.test(cleanUsername)) {
-      setError("Username must be 3–30 characters using letters, numbers, or underscores.");
-      return;
+      return setError("Username must be 3–30 characters using letters, numbers, or underscores.");
     }
-    if (cleanBio.length > 160) {
-      setError("Bio must be 160 characters or fewer.");
-      return;
-    }
+    if (cleanBio.length > 160) return setError("Bio must be 160 characters or fewer.");
 
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setSaving(false);
-      window.location.href = "/auth";
+      router.push("/auth");
       return;
     }
 
@@ -188,11 +244,56 @@ export default function ProfilePage() {
     setSaving(false);
   }
 
+  async function toggleLike(gist: Gist) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.push("/auth");
+      return;
+    }
+
+    setBusy(gist.id + "l");
+    const result = gist.liked
+      ? await supabase.from("likes").delete().eq("post_id", gist.id).eq("user_id", user.id)
+      : await supabase.from("likes").insert({ post_id: gist.id, user_id: user.id });
+
+    if (!result.error) {
+      setGists((current) => current.map((item) => item.id === gist.id
+        ? { ...item, liked: !item.liked, likes: item.likes + (item.liked ? -1 : 1) }
+        : item));
+    }
+    setBusy(null);
+  }
+
+  async function toggleSave(gist: Gist) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.push("/auth");
+      return;
+    }
+
+    setBusy(gist.id + "s");
+    const result = gist.saved
+      ? await supabase.from("saves").delete().eq("post_id", gist.id).eq("user_id", user.id)
+      : await supabase.from("saves").insert({ post_id: gist.id, user_id: user.id });
+
+    if (!result.error) {
+      setGists((current) => current.map((item) => item.id === gist.id ? { ...item, saved: !item.saved } : item));
+    }
+    setBusy(null);
+  }
+
+  function shareGist(gist: Gist) {
+    const url = window.location.origin + "/gist/" + gist.id;
+    if (navigator.share) {
+      void navigator.share({ title: "Gista", text: gist.body ?? "Join this Gist on Gista", url });
+    } else {
+      void navigator.clipboard.writeText(url);
+    }
+  }
+
   const initials = profile?.display_name?.trim()?.[0]?.toUpperCase() ?? "G";
 
-  if (loading) {
-    return <main className="profile-page"><div className="profile-loading">Loading your profile…</div></main>;
-  }
+  if (loading) return <main className="profile-page"><div className="profile-loading">Loading your profile…</div></main>;
 
   return (
     <main className="profile-page">
@@ -235,7 +336,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="profile-actions">
-            <button className="profile-primary" onClick={() => { setEdit((value) => !value); setError(""); setMessage(""); }}>
+            <button className="profile-primary" type="button" onClick={() => { setEdit((value) => !value); setError(""); setMessage(""); }}>
               {edit ? "Close editor" : "Edit profile"}
             </button>
             <Link className="profile-secondary" href="/saved">Saved</Link>
@@ -265,7 +366,7 @@ export default function ProfilePage() {
               <textarea value={bio} maxLength={160} onChange={(event) => setBio(event.target.value)} placeholder="Tell people about yourself…" />
               <small>{bio.length}/160</small>
             </label>
-            <button className="profile-save" onClick={saveProfile} disabled={saving}><Check size={17} /> {saving ? "Saving…" : "Save changes"}</button>
+            <button className="profile-save" type="button" onClick={() => void saveProfile()} disabled={saving}><Check size={17} /> {saving ? "Saving…" : "Save changes"}</button>
           </section>
         )}
 
@@ -281,22 +382,42 @@ export default function ProfilePage() {
           ) : (
             <div className="profile-gists">
               {gists.map((gist) => (
-                <Link className="profile-gist" href={"/gist/" + gist.id} key={gist.id}>
+                <article className="profile-gist" key={gist.id}>
                   <div className="profile-gist-meta">
-                    <span>{gist.content_type === "voice" ? "Voice Gist" : gist.content_type === "photo" ? "Photo Gist" : "Gist"}</span>
+                    <Link href={"/gist/" + gist.id}>{gist.content_type === "voice" ? "Voice Gist" : gist.content_type === "photo" ? "Photo Gist" : "Gist"}</Link>
                     <span>{gist.category}</span>
                   </div>
-                  {gist.body && <p>{gist.body}</p>}
-                  {gist.content_type === "photo" && gist.media_url && <img src={gist.media_url} alt="Gist" />}
-                  {gist.content_type === "voice" && gist.media_url && <VoiceNote src={gist.media_url} durationHint={gist.voice_duration_seconds} />}
+
+                  <Link className="profile-gist-content" href={"/gist/" + gist.id}>
+                    {gist.body && <p>{gist.body}</p>}
+                    {gist.content_type === "photo" && gist.media_url && <img src={gist.media_url} alt="Gist" />}
+                  </Link>
+
+                  {gist.content_type === "voice" && gist.media_url && (
+                    <div className="profile-gist-voice">
+                      <VoiceNote src={gist.media_url} durationHint={gist.voice_duration_seconds} />
+                    </div>
+                  )}
+
+                  <div className="actions profile-gist-actions">
+                    <button type="button" onClick={() => void toggleLike(gist)} disabled={busy === gist.id + "l"} aria-label="Like Gist">
+                      <Heart size={18} fill={gist.liked ? "currentColor" : "none"} /> {gist.likes}
+                    </button>
+                    <Link className="feed-action-link" href={"/gist/" + gist.id}><MessageCircle size={18} /> {gist.responses}</Link>
+                    <button type="button" onClick={() => shareGist(gist)} aria-label="Share Gist"><Share2 size={18} /></button>
+                    <button type="button" onClick={() => void toggleSave(gist)} disabled={busy === gist.id + "s"} aria-label="Save Gist">
+                      <Bookmark size={18} fill={gist.saved ? "currentColor" : "none"} />
+                    </button>
+                  </div>
+
                   <small>{new Date(gist.created_at).toLocaleString()}</small>
-                </Link>
+                </article>
               ))}
             </div>
           )}
         </section>
 
-        <button className="profile-logout" onClick={() => void signOut()}>Log out</button>
+        <button className="profile-logout" type="button" onClick={() => void signOut()}>Log out</button>
       </section>
     </main>
   );
