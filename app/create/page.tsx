@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mic, ImagePlus, Type, Square } from "lucide-react";
 import Link from "next/link";
@@ -24,7 +24,7 @@ export default function CreatePage() {
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const router = useRouter();
 
-  function revokePreview() { if (photoPreview) URL.revokeObjectURL(photoPreview); }
+  useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
 
   function stop() {
     if (recorder.current?.state === "recording") recorder.current.stop();
