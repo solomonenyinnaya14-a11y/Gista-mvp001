@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ImagePlus } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { signOut } from "@/lib/auth";
@@ -13,6 +14,8 @@ export default function ProfilePage() {
   const [bio, setBio] = useState("");
   const [stats, setStats] = useState({ gists: 0, followers: 0, following: 0 });
   const [loading, setLoading] = useState(true);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarError, setAvatarError] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -32,6 +35,37 @@ export default function ProfilePage() {
     }
     load();
   }, [supabase]);
+
+  async function uploadAvatar(file: File) {
+    setAvatarError("");
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setAvatarError("Use a JPG, PNG, or WebP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError("Profile photos must be 5MB or smaller.");
+      return;
+    }
+    setAvatarUploading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setAvatarUploading(false);
+      return;
+    }
+    const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+    const path = user.id + "/" + crypto.randomUUID() + "." + extension;
+    const upload = await supabase.storage.from("profile-media").upload(path, file, { contentType: file.type });
+    if (upload.error) {
+      setAvatarError(upload.error.message);
+      setAvatarUploading(false);
+      return;
+    }
+    const publicUrl = supabase.storage.from("profile-media").getPublicUrl(path).data.publicUrl;
+    const { error } = await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", user.id);
+    if (error) setAvatarError(error.message);
+    else setProfile((current: any) => ({ ...current, avatar_url: publicUrl }));
+    setAvatarUploading(false);
+  }
 
   async function saveProfile() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -53,9 +87,21 @@ export default function ProfilePage() {
       <section className="profile-card">
         {loading ? <p>Loading profile…</p> : (
           <>
-            <div className="profile-avatar">{profile?.display_name?.[0]?.toUpperCase() ?? "G"}</div>
+            <div className="profile-avatar" style={{ position: "relative", overflow: "hidden" }}>
+              {profile?.avatar_url ? <img src={profile.avatar_url} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : (profile?.display_name?.[0]?.toUpperCase() ?? "G")}
+              <label style={{ position: "absolute", right: 4, bottom: 4, cursor: "pointer" }} aria-label="Change profile photo">
+                <ImagePlus size={18} />
+                <input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={avatarUploading} onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) uploadAvatar(file);
+                  event.currentTarget.value = "";
+                }} />
+              </label>
+            </div>
             <h1>{profile?.display_name ?? "Gista User"}</h1>
             <p>@{profile?.username ?? "username"}</p>
+            {avatarUploading && <p>Uploading profile photo…</p>}
+            {avatarError && <div className="auth-message">{avatarError}</div>}
             <p className="bio">{profile?.bio || "A place to talk, share and connect."}</p>
             <div className="profile-stats">
               <span><b>{stats.gists}</b> Gists</span>
