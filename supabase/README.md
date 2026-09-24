@@ -12,3 +12,5 @@ follows(follower_id, following_id, created_at)
 notifications(id, recipient_id, actor_id, type, post_id, response_id, read_at, created_at)
 
 MVP content intentionally excludes video, DMs, reposts, mute, communities and monetization.
+
+Notification triggers currently create notifications for follows, likes, responses, and replies. Reply notifications target the author of the response being replied to.
