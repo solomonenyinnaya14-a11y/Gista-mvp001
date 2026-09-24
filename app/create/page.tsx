@@ -1,13 +1,167 @@
 "use client";
-import {useRef,useState} from "react";
-import {useRouter} from "next/navigation";
-import {Mic,ImagePlus,Type,Square} from "lucide-react";
+
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Mic, ImagePlus, Type, Square } from "lucide-react";
 import Link from "next/link";
-import {createClient} from "@/lib/supabase/client";
-const categories=["Music","Movies / Entertainment","Art","Banter","Fun","Gossip","Sports","Relationships","Business","Technology","Education","Lifestyle","Society","News & Current Events","Opinions","Stories"];
-export default function CreatePage(){
- const [mode,setMode]=useState<"text"|"photo"|"voice">("text");const [photo,setPhoto]=useState<File|null>(null);const [photoPreview,setPhotoPreview]=useState("");const [text,setText]=useState("");const [category,setCategory]=useState("");const [recording,setRecording]=useState(false);const [seconds,setSeconds]=useState(0);const [audio,setAudio]=useState<Blob|null>(null);const [loading,setLoading]=useState(false);const [error,setError]=useState("");const rec=useRef<MediaRecorder|null>(null);const chunks=useRef<Blob[]>([]);const timer=useRef<any>(null);const router=useRouter();
- function start(){navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{chunks.current=[];const m=new MediaRecorder(stream);rec.current=m;let s=0;setSeconds(0);m.ondataavailable=e=>e.data.size&&chunks.current.push(e.data);m.onstop=()=>{stream.getTracks().forEach(t=>t.stop());setAudio(new Blob(chunks.current,{type:m.mimeType||"audio/webm"}));};m.start();setRecording(true);timer.current=setInterval(()=>{s++;setSeconds(s);if(s>=120)stop()},1000)}).catch(()=>setError("Microphone access is required for voice Gists."))}
- function stop(){if(rec.current?.state==="recording")rec.current.stop();clearInterval(timer.current);setRecording(false)}
- async function post(){setError("");if(!category)return setError("Choose a category.");if(mode==="text"&&!text.trim())return setError("Write something before posting.");if(mode==="photo"&&!photo)return setError("Choose a photo first.");if(mode==="voice"&&!audio)return setError("Record a voice Gist first.");setLoading(true);const supabase=createClient();const {data:{user}}=await supabase.auth.getUser();if(!user){router.push("/auth");return}let media_url=null;if(mode==="photo"){const path=user.id+"/"+crypto.randomUUID()+"."+((photo!.name.split(".").pop()||"jpg"));const up=await supabase.storage.from("gist-media").upload(path,photo!,{contentType:photo!.type});if(up.error){setError(up.error.message);setLoading(false);return}media_url=supabase.storage.from("gist-media").getPublicUrl(path).data.publicUrl}else if(mode==="voice"){const path=user.id+"/"+crypto.randomUUID()+".webm";const up=await supabase.storage.from("gist-audio").upload(path,audio!,{contentType:audio!.type||"audio/webm"});if(up.error){setError(up.error.message);setLoading(false);return}media_url=supabase.storage.from("gist-audio").getPublicUrl(path).data.publicUrl}const {error:e}=await supabase.from("posts").insert({author_id:user.id,content_type:mode,body:mode==="text"?text.trim():null,media_url,category,status:"growing",voice_duration_seconds:mode==="voice"?seconds:null});if(e)setError(e.message);else router.push("/");setLoading(false)}
- return <main className="create-page"><header className="simple-header"><Link href="/">Cancel</Link><strong>Start a Gist</strong><button onClick={post} disabled={loading}>{loading?"Posting…":"Post"}</button></header><section className="create-card"><div className="avatar">G</div><div className="format-row"><button type="button" className={mode==="text"?"active":""} onClick={()=>setMode("text")}><Type/>Text</button><button type="button" className={mode==="photo"?"active":""} onClick={()=>setMode("photo")}><ImagePlus/>Photo</button><button type="button" className={mode==="voice"?"active":""} onClick={()=>{setMode("voice");setAudio(null)}}><Mic/>Voice</button></div>{mode==="text"?<textarea value={text} onChange={e=>setText(e.target.value)} maxLength={5000} placeholder="Say something worth sharing…"/>:mode==="photo"?<div><input type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0]??null;setPhoto(f);setPhotoPreview(f?URL.createObjectURL(f):"")}}/>{photoPreview&&<img src={photoPreview} alt="Selected Gist" style={{maxWidth:"100%",borderRadius:16,marginTop:12}}/>}</div>:<div><p>{recording?"Recording":"Voice Gist"} · {seconds}s / 120s</p>{recording?<button type="button" className="primary" onClick={stop}><Square/> Stop recording</button>:<button type="button" className="primary" onClick={start}><Mic/> {audio?"Record again":"Start recording"}</button>}{audio&&<audio controls src={URL.createObjectURL(audio)}/>}</div>}<select value={category} onChange={e=>setCategory(e.target.value)}><option value="" disabled>Choose a category</option>{categories.map(x=><option key={x}>{x}</option>)}</select>{error&&<div className="auth-message">{error}</div>}</section></main>
+import { createClient } from "@/lib/supabase/client";
+
+const categories = ["Music","Movies / Entertainment","Art","Banter","Fun","Gossip","Sports","Relationships","Business","Technology","Education","Lifestyle","Society","News & Current Events","Opinions","Stories"];
+
+export default function CreatePage() {
+  const [mode, setMode] = useState<"text" | "photo" | "voice">("text");
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState("");
+  const [text, setText] = useState("");
+  const [category, setCategory] = useState("");
+  const [recording, setRecording] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  const [audio, setAudio] = useState<Blob | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const recorder = useRef<MediaRecorder | null>(null);
+  const chunks = useRef<Blob[]>([]);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const router = useRouter();
+
+  function stop() {
+    if (recorder.current?.state === "recording") recorder.current.stop();
+    if (timer.current) clearInterval(timer.current);
+    timer.current = null;
+    setRecording(false);
+  }
+
+  async function start() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunks.current = [];
+      const mediaRecorder = new MediaRecorder(stream);
+      recorder.current = mediaRecorder;
+      let elapsed = 0;
+      setSeconds(0);
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size) chunks.current.push(event.data);
+      };
+      mediaRecorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        setAudio(new Blob(chunks.current, { type: mediaRecorder.mimeType || "audio/webm" }));
+      };
+      mediaRecorder.start();
+      setRecording(true);
+      timer.current = setInterval(() => {
+        elapsed += 1;
+        setSeconds(elapsed);
+        if (elapsed >= 120) stop();
+      }, 1000);
+    } catch {
+      setError("Microphone access is required for voice Gists.");
+    }
+  }
+
+  async function post() {
+    setError("");
+    if (!category) return setError("Choose a category.");
+    if (mode === "text" && !text.trim()) return setError("Write something before posting.");
+    if (mode === "photo" && !photo) return setError("Choose a photo first.");
+    if (mode === "voice" && !audio) return setError("Record a voice Gist first.");
+
+    setLoading(true);
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.push("/auth");
+      setLoading(false);
+      return;
+    }
+
+    let media_url: string | null = null;
+
+    if (mode === "photo" && photo) {
+      const extension = photo.name.split(".").pop() || "jpg";
+      const path = user.id + "/" + crypto.randomUUID() + "." + extension;
+      const upload = await supabase.storage.from("gist-media").upload(path, photo, { contentType: photo.type });
+      if (upload.error) {
+        setError(upload.error.message);
+        setLoading(false);
+        return;
+      }
+      media_url = supabase.storage.from("gist-media").getPublicUrl(path).data.publicUrl;
+    }
+
+    if (mode === "voice" && audio) {
+      const path = user.id + "/" + crypto.randomUUID() + ".webm";
+      const upload = await supabase.storage.from("gist-audio").upload(path, audio, { contentType: audio.type || "audio/webm" });
+      if (upload.error) {
+        setError(upload.error.message);
+        setLoading(false);
+        return;
+      }
+      media_url = supabase.storage.from("gist-audio").getPublicUrl(path).data.publicUrl;
+    }
+
+    const { error: insertError } = await supabase.from("posts").insert({
+      author_id: user.id,
+      content_type: mode,
+      body: mode === "text" ? text.trim() : null,
+      media_url,
+      category,
+      status: "growing",
+      voice_duration_seconds: mode === "voice" ? seconds : null,
+    });
+
+    if (insertError) setError(insertError.message);
+    else router.push("/");
+    setLoading(false);
+  }
+
+  return (
+    <main className="create-page">
+      <header className="simple-header">
+        <Link href="/">Cancel</Link>
+        <strong>Start a Gist</strong>
+        <button onClick={post} disabled={loading}>{loading ? "Posting…" : "Post"}</button>
+      </header>
+      <section className="create-card">
+        <div className="avatar">G</div>
+        <div className="format-row">
+          <button type="button" className={mode === "text" ? "active" : ""} onClick={() => setMode("text")}><Type />Text</button>
+          <button type="button" className={mode === "photo" ? "active" : ""} onClick={() => setMode("photo")}><ImagePlus />Photo</button>
+          <button type="button" className={mode === "voice" ? "active" : ""} onClick={() => { setMode("voice"); setAudio(null); }}><Mic />Voice</button>
+        </div>
+
+        {mode === "text" && (
+          <textarea value={text} onChange={(event) => setText(event.target.value)} maxLength={5000} placeholder="Say something worth sharing…" />
+        )}
+
+        {mode === "photo" && (
+          <div>
+            <input type="file" accept="image/*" onChange={(event) => {
+              const file = event.target.files?.[0] ?? null;
+              setPhoto(file);
+              setPhotoPreview(file ? URL.createObjectURL(file) : "");
+            }} />
+            {photoPreview && <img src={photoPreview} alt="Selected Gist" style={{ maxWidth: "100%", borderRadius: 16, marginTop: 12 }} />}
+          </div>
+        )}
+
+        {mode === "voice" && (
+          <div>
+            <p>{recording ? "Recording" : "Voice Gist"} · {seconds}s / 120s</p>
+            {recording ? (
+              <button type="button" className="primary" onClick={stop}><Square /> Stop recording</button>
+            ) : (
+              <button type="button" className="primary" onClick={start}><Mic /> {audio ? "Record again" : "Start recording"}</button>
+            )}
+            {audio && <audio controls src={URL.createObjectURL(audio)} />}
+          </div>
+        )}
+
+        <select value={category} onChange={(event) => setCategory(event.target.value)}>
+          <option value="" disabled>Choose a category</option>
+          {categories.map((item) => <option key={item} value={item}>{item}</option>)}
+        </select>
+        {error && <div className="auth-message">{error}</div>}
+      </section>
+    </main>
+  );
+}
