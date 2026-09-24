@@ -6,8 +6,11 @@ import { Mic, Square } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type Profile = { display_name: string | null; username: string | null };
+type RawProfile = Profile | Profile[] | null | undefined;
 type Reply = { id: string; body: string | null; content_type: string; media_url: string | null; created_at: string; author_id: string; profiles: Profile | null };
+type RawReply = Omit<Reply, "profiles"> & { profiles: RawProfile };
 type Response = { id: string; body: string | null; content_type: string; media_url: string | null; created_at: string; author_id: string; profiles: Profile | null; replies: Reply[] };
+type RawResponse = Omit<Response, "profiles" | "replies"> & { profiles: RawProfile; replies: RawReply[] };
 type Post = { id: string; author_id: string; body: string | null; category: string; status: string; created_at: string; profiles: Profile | null };
 
 export default function GistPage() {
@@ -48,9 +51,16 @@ export default function GistPage() {
     ]);
 
     if (postResult.error) setError(postResult.error.message);
-    setPost(postResult.data as Post | null);
+    const normalizeProfile = (profile: RawProfile): Profile | null => Array.isArray(profile) ? profile[0] ?? null : profile ?? null;
+    const rawPost = postResult.data as (Omit<Post, "profiles"> & { profiles: RawProfile }) | null;
+    setPost(rawPost ? { ...rawPost, profiles: normalizeProfile(rawPost.profiles) } : null);
     setLikeCount(likeResult.count ?? 0);
-    setResponses(((responseResult.data ?? []) as Response[]).map((item) => ({ ...item, replies: item.replies ?? [] })));
+    const rawResponses = (responseResult.data ?? []) as RawResponse[];
+    setResponses(rawResponses.map((item) => ({
+      ...item,
+      profiles: normalizeProfile(item.profiles),
+      replies: (item.replies ?? []).map((reply) => ({ ...reply, profiles: normalizeProfile(reply.profiles) })),
+    })));
     setLoading(false);
   }
 
