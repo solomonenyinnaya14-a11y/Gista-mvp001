@@ -308,7 +308,10 @@ export default function HomePage() {
 
         <div className="feed">
           {loading ? (
-            <p className="feed-message">Loading Gists…</p>
+            <div className="feed-skeleton" aria-label="Loading Gists">
+              <div className="skeleton-post" />
+              <div className="skeleton-post" />
+            </div>
           ) : feedError ? (
             <div className="empty-state"><h3>We couldn&apos;t load the Gists</h3><p>{feedError}</p><button className="primary small" onClick={() => void loadPosts(user)}>Try again</button></div>
           ) : posts.length === 0 ? (
