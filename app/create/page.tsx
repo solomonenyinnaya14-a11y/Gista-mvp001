@@ -17,7 +17,8 @@ export default function CreatePage() {
   const [category, setCategory] = useState("");
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
-  const [audio, setAudio] = useState<Blob | null>(null);\n  const [audioUrl, setAudioUrl] = useState("");
+  const [audio, setAudio] = useState<Blob | null>(null);
+  const [audioUrl, setAudioUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const recorder = useRef<MediaRecorder | null>(null);
@@ -25,7 +26,16 @@ export default function CreatePage() {
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const router = useRouter();
 
-  useEffect(() => {\n    return () => { if (photoPreview) URL.revokeObjectURL(photoPreview); };\n  }, [photoPreview]);\n\n  useEffect(() => {\n    if (!audio) { setAudioUrl(""); return; }\n    const url = URL.createObjectURL(audio);\n    setAudioUrl(url);\n    return () => URL.revokeObjectURL(url);\n  }, [audio]);
+  useEffect(() => {
+    return () => { if (photoPreview) URL.revokeObjectURL(photoPreview); };
+  }, [photoPreview]);
+
+  useEffect(() => {
+    if (!audio) { setAudioUrl(""); return; }
+    const url = URL.createObjectURL(audio);
+    setAudioUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [audio]);
 
   function stop() {
     if (recorder.current?.state === "recording") recorder.current.stop();
