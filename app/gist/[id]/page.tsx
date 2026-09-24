@@ -25,6 +25,7 @@ export default function GistPage() {
   const [likeCount, setLikeCount] = useState(0);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [now] = useState(() => Date.now());
   const [showDna, setShowDna] = useState(false);
   const [menu, setMenu] = useState(false);
   const [openReply, setOpenReply] = useState<string | null>(null);
@@ -183,7 +184,7 @@ export default function GistPage() {
   const voiceResponses = responses.filter((item) => item.content_type === "voice").length;
   const textResponses = responses.length - voiceResponses;
   const participants = new Set([post.author_id, ...responses.map((item) => item.author_id)]).size;
-  const ageHours = Math.max(1, (Date.now() - new Date(post.created_at).getTime()) / 3600000);
+  const ageHours = Math.max(1, (now - new Date(post.created_at).getTime()) / 3600000);
   const growth = (responses.length / ageHours).toFixed(1);
 
   return (
