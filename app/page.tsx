@@ -12,7 +12,14 @@ export default function HomePage(){
  const [posts,setPosts]=useState<Post[]>([]);
  const [loading,setLoading]=useState(true);
  const [busy,setBusy]=useState<string|null>(null);
+ const [unreadNotifications,setUnreadNotifications]=useState(0);
  const supabase=createClient();
+
+ const loadNotifications=useCallback(async(currentUser:any)=>{
+  if(!currentUser){setUnreadNotifications(0);return;}
+  const {count}=await supabase.from("notifications").select("id",{count:"exact",head:true}).eq("recipient_id",currentUser.id).is("read_at",null);
+  setUnreadNotifications(count??0);
+ },[supabase]);
 
  const loadPosts=useCallback(async(currentUser:any)=>{
   setLoading(true);
@@ -61,9 +68,22 @@ export default function HomePage(){
 
  useEffect(()=>{
   let active=true;
-  supabase.auth.getUser().then(({data})=>{if(active)setUser(data.user); return data.user;}).then(currentUser=>{if(active)loadPosts(currentUser);});
-  const {data}=supabase.auth.onAuthStateChange((_e,s)=>{setUser(s?.user??null);loadPosts(s?.user??null);});
-  return()=>{active=false;data.subscription.unsubscribe();};
+  let notificationChannel:any=null;
+  supabase.auth.getUser().then(({data})=>{
+   if(active){
+    setUser(data.user);
+    loadNotifications(data.user);
+    if(data.user){
+     notificationChannel=supabase.channel("home-notifications-"+data.user.id)
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications",filter:"recipient_id=eq."+data.user.id},()=>loadNotifications(data.user))
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"notifications",filter:"recipient_id=eq."+data.user.id},()=>loadNotifications(data.user))
+      .subscribe();
+    }
+   }
+   return data.user;
+  }).then(currentUser=>{if(active)loadPosts(currentUser);});
+  const {data}=supabase.auth.onAuthStateChange((_e,s)=>{setUser(s?.user??null);loadPosts(s?.user??null);loadNotifications(s?.user??null);});
+  return()=>{active=false;data.subscription.unsubscribe();if(notificationChannel)supabase.removeChannel(notificationChannel);};
  },[loadPosts,supabase]);
 
  async function toggleLike(p:Post){
@@ -84,5 +104,5 @@ export default function HomePage(){
  <section className="content"><div className="feed-tabs">{["Discover","Following","Trending"].map(x=><button key={x} className={tab===x?"tab active":"tab"} onClick={()=>setTab(x)}>{x}</button>)}</div>
  <div className="composer"><div className="avatar">{user?.email?.[0]?.toUpperCase()??"G"}</div><button className="composer-input" onClick={()=>location.href="/create"}>What’s on your mind?</button><button className="create-btn" onClick={()=>location.href="/create"}><Plus size={19}/></button></div>
  <div className="feed">{loading?<p>Loading Gists…</p>:posts.length===0?<div className="empty-state"><h3>No Gists yet</h3><p>{tab==="Following"?"Follow people to see their Gists here.":"Be the first person to start a Gist."}</p></div>:posts.map(p=><article className="post" key={p.id}><div className="post-head"><div className="avatar">{p.profiles?.display_name?.[0]?.toUpperCase()??"G"}</div><div className="identity"><strong>{p.profiles?.display_name??"Gista User"}</strong><span>@{p.profiles?.username??"user"} · {new Date(p.created_at).toLocaleString()}</span></div><span className="category">{p.category}</span></div>{p.content_type==="photo"&&p.media_url&&<img src={p.media_url} alt="Gist photo" style={{width:"100%",borderRadius:16,marginTop:10}}/>}{p.content_type==="voice"&&p.media_url&&<audio controls src={p.media_url} style={{width:"100%",marginTop:10}} />}{p.body&&<p className="post-text">{p.body}</p>}<div className="gist-status"><span className={p.status==="trending"?"hot":"dot"}>{p.status==="trending"?"🔥":"●"}</span>{p.status.charAt(0).toUpperCase()+p.status.slice(1)}<button onClick={()=>location.href="/gist/"+p.id}>Gist DNA</button></div><div className="actions"><button onClick={()=>toggleLike(p)} disabled={busy===p.id+"l"}><Heart size={18} fill={p.liked?"currentColor":"none"}/> {p.likes}</button><button onClick={()=>location.href="/gist/"+p.id}><MessageCircle size={18}/> {p.responses}</button><button onClick={()=>{const url=location.origin+"/gist/"+p.id;if(navigator.share)navigator.share({title:"Gista",text:p.body??"Join this Gist on Gista",url});else navigator.clipboard.writeText(url)}}><Share2 size={18}/></button><button onClick={()=>toggleSave(p)} disabled={busy===p.id+"s"}><Bookmark size={18} fill={p.saved?"currentColor":"none"}/></button></div></article>)}</div>
- </section><nav className="bottom-nav"><button className="nav-active"><Home/><span>Home</span></button><button onClick={()=>location.href="/search"}><Search/><span>Search</span></button><button className="nav-create" onClick={()=>location.href="/create"}><Plus/></button><button onClick={()=>location.href="/notifications"}><Bell/><span>Notifications</span></button><button onClick={()=>location.href="/profile"}><User/><span>Profile</span></button></nav></main>;
+ </section><nav className="bottom-nav"><button className="nav-active"><Home/><span>Home</span></button><button onClick={()=>location.href="/search"}><Search/><span>Search</span></button><button className="nav-create" onClick={()=>location.href="/create"}><Plus/></button><button className="notification-nav" onClick={()=>location.href="/notifications"}><Bell/><span>Notifications</span>{unreadNotifications>0&&<span className="notification-badge">{unreadNotifications>99?"99+":unreadNotifications}</span>}</button><button onClick={()=>location.href="/profile"}><User/><span>Profile</span></button></nav></main>;
 }
