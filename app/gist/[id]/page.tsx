@@ -246,6 +246,24 @@ export default function GistPage() {
     }
   }
 
+  async function deleteGist() {
+    if (!userId || !post || userId !== post.author_id) return;
+    if (!confirm("Delete this Gist? This cannot be undone.")) return;
+
+    setError("");
+    const result = await supabase.from("posts").delete().eq("id", id).eq("author_id", userId);
+    if (result.error) {
+      setError(result.error.message);
+      return;
+    }
+
+    const bucket = post.content_type === "photo" ? "gist-media" : post.content_type === "voice" ? "gist-audio" : null;
+    const path = bucket ? storagePath(post.media_url, bucket) : null;
+    if (bucket && path) await supabase.storage.from(bucket).remove([path]);
+    setMenu(false);
+    router.push("/");
+  }
+
   if (loading) return <main className="content"><p>Loading Gist…</p></main>;
   if (!post) return <main className="content"><p>Gist not found.</p></main>;
 
@@ -265,20 +283,33 @@ export default function GistPage() {
           <div className="identity"><strong>{post.profiles?.display_name ?? "Gista User"}</strong><span>@{post.profiles?.username ?? "user"} · {new Date(post.created_at).toLocaleString()}</span></div>
           <span className="category">{post.category}</span>
         </div>
+        {menu && (
+          <div className="action-menu">
+            {userId === post.author_id ? (
+              <button className="danger" onClick={deleteGist}>Delete Gist</button>
+            ) : (
+              <>
+                <button onClick={async () => { const reason = prompt("Why are you reporting this Gist?"); if (!reason || !userId) return; const result = await supabase.from("reports").insert({ reporter_id: userId, post_id: id, reason }); if (result.error) setError(result.error.message); else { setMenu(false); setError("Report submitted."); } }}>Report Gist</button>
+                <button onClick={async () => {
+                  if (!userId) { router.push("/auth"); return; }
+                  const result = await supabase.from("blocks").insert({ blocker_id: userId, blocked_id: post.author_id });
+                  if (result.error) setError(result.error.message);
+                  else { setMenu(false); router.push("/"); }
+                }}>Block author</button>
+                <button onClick={async () => {
+                  if (!userId) { router.push("/auth"); return; }
+                  const result = await supabase.from("not_interested").insert({ user_id: userId, post_id: id });
+                  if (result.error && result.error.code !== "23505") setError(result.error.message);
+                  else { setMenu(false); router.push("/"); }
+                }}>Not Interested</button>
+              </>
+            )}
+          </div>
+        )}
         {post.content_type === "photo" && post.media_url && <img src={post.media_url} alt="Gist" className="gist-media" />}
         {post.content_type === "voice" && post.media_url && <VoiceNote src={post.media_url} durationHint={post.voice_duration_seconds} />}
         {post.body && <p className="post-text">{post.body}</p>}
-        <div className="gist-meta"><span>❤️ {likeCount} Likes</span><span>💬 {responses.length} Responses</span><button type="button" onClick={() => setShowDna(true)}>Gist DNA</button>{userId === post.author_id && <button type="button" onClick={async () => {
-          if (!confirm("Delete this Gist?")) return;
-          const result = await supabase.from("posts").delete().eq("id", id).eq("author_id", userId);
-          if (result.error) setError(result.error.message);
-          else {
-            const bucket = post.content_type === "photo" ? "gist-media" : post.content_type === "voice" ? "gist-audio" : null;
-            const path = bucket ? storagePath(post.media_url, bucket) : null;
-            if (bucket && path) await supabase.storage.from(bucket).remove([path]);
-            router.push("/");
-          }
-        }}>Delete Gist</button>}</div>
+        <div className="gist-meta"><span>❤️ {likeCount} Likes</span><span>💬 {responses.length} Responses</span><button type="button" onClick={() => setShowDna(true)}>Gist DNA</button></div>
       </article>
 
       {showDna && (
@@ -296,24 +327,6 @@ export default function GistPage() {
               <div><strong>{Math.round((textResponses / Math.max(1, responses.length)) * 100)}%</strong><span>Text mix</span></div>
             </div>
           </div>
-        </div>
-      )}
-
-      {menu && (
-        <div className="action-menu">
-          <button onClick={async () => { const reason = prompt("Why are you reporting this Gist?"); if (!reason || !userId) return; await supabase.from("reports").insert({ reporter_id: userId, post_id: id, reason }); setMenu(false); setError("Report submitted."); }}>Report Gist</button>
-          <button onClick={async () => {
-            if (!userId) { router.push("/auth"); return; }
-            const result = await supabase.from("blocks").insert({ blocker_id: userId, blocked_id: post.author_id });
-            if (result.error) setError(result.error.message);
-            else { setMenu(false); router.push("/"); }
-          }}>Block author</button>
-          <button onClick={async () => {
-            if (!userId) { router.push("/auth"); return; }
-            const result = await supabase.from("not_interested").insert({ user_id: userId, post_id: id });
-            if (result.error && result.error.code !== "23505") setError(result.error.message);
-            else { setMenu(false); router.push("/"); }
-          }}>Not Interested</button>
         </div>
       )}
 
