@@ -85,7 +85,7 @@ export default function HomePage() {
 
     let query = supabase
       .from("posts")
-      .select("id,body,content_type,media_url,category,status,created_at,author_id,voice_duration_seconds,profiles(display_name,username,avatar_url)");
+      .select("id,body,content_type,media_url,category,status,created_at,author_id,voice_duration_seconds");
 
     if (currentUser) {
       const [{ data: blocked }, { data: notInterested }] = await Promise.all([
@@ -174,15 +174,27 @@ export default function HomePage() {
     );
     const saved = new Set((savesResult.data ?? []).map((item: { post_id: string }) => item.post_id));
 
-    const normalized = (data as Array<Post & { profiles: Profile | Profile[] | null }>)
-      .map((post) => ({
-        ...post,
-        profiles: Array.isArray(post.profiles) ? post.profiles[0] ?? null : post.profiles,
-        likes: likeCounts[post.id] ?? 0,
-        responses: responseCounts[post.id] ?? 0,
-        liked: liked.has(post.id),
-        saved: saved.has(post.id),
-      }));
+    const authorIds = [...new Set(data.map((post) => post.author_id))];
+    const { data: profileRows, error: profileError } = authorIds.length
+      ? await supabase.from("profiles").select("id,display_name,username,avatar_url").in("id", authorIds)
+      : { data: [], error: null };
+
+    if (profileError) {
+      setFeedError(profileError.message);
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
+
+    const profilesById = new Map((profileRows ?? []).map((item) => [item.id, item as Profile]));
+    const normalized = data.map((post) => ({
+      ...post,
+      profiles: profilesById.get(post.author_id) ?? null,
+      likes: likeCounts[post.id] ?? 0,
+      responses: responseCounts[post.id] ?? 0,
+      liked: liked.has(post.id),
+      saved: saved.has(post.id),
+    }));
 
     setPosts(normalized);
     setLoading(false);
@@ -336,7 +348,7 @@ export default function HomePage() {
               </div>
 
               <div className="actions">
-                <button type="button" onClick={() => void toggleLike(post)} disabled={busy === post.id + "l"} aria-label="Like Gist">
+                <button type="button" className={post.liked ? "liked" : ""} onClick={() => void toggleLike(post)} disabled={busy === post.id + "l"} aria-label="Like Gist">
                   <Heart size={18} fill={post.liked ? "currentColor" : "none"} /> {post.likes}
                 </button>
                 <Link className="feed-action-link" href={"/gist/" + post.id}><MessageCircle size={18} /> {post.responses}</Link>
