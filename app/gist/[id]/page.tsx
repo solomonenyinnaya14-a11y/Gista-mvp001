@@ -229,6 +229,8 @@ export default function GistPage() {
           <div className="identity"><strong>{post.profiles?.display_name ?? "Gista User"}</strong><span>@{post.profiles?.username ?? "user"} · {new Date(post.created_at).toLocaleString()}</span></div>
           <span className="category">{post.category}</span>
         </div>
+        {post.content_type === "photo" && post.media_url && <img src={post.media_url} alt="Gist" className="gist-media" />}
+        {post.content_type === "voice" && post.media_url && <VoiceNote src={post.media_url} durationHint={post.voice_duration_seconds} />}
         {post.body && <p className="post-text">{post.body}</p>}
         <div className="gist-meta"><span>❤️ {likeCount} Likes</span><span>💬 {responses.length} Responses</span><button type="button" onClick={() => setShowDna(true)}>Gist DNA</button>{userId === post.author_id && <button type="button" onClick={async () => {
           if (!confirm("Delete this Gist?")) return;
