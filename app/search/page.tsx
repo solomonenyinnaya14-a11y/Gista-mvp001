@@ -29,9 +29,9 @@ export default function SearchPage() {
       const pattern = `%${term}%`;
 
       const [usernameResult, displayNameResult, bodyResult, categoryResult] = await Promise.all([
-        supabase.from("profiles").select("id,username,display_name,bio").ilike("username", pattern).limit(20),
+        supabase.from("profiles").select("id,username,display_name,bio,avatar_url").ilike("username", pattern).limit(20),
         supabase.from("profiles").select("id,username,display_name,bio").ilike("display_name", pattern).limit(20),
-        supabase.from("posts").select("id,body,content_type,media_url,category,created_at,profiles(display_name,username)").ilike("body", pattern).order("created_at", { ascending: false }).limit(30),
+        supabase.from("posts").select("id,body,content_type,media_url,category,created_at,profiles(display_name,username,avatar_url)").ilike("body", pattern).order("created_at", { ascending: false }).limit(30),
         supabase.from("posts").select("id,body,content_type,media_url,category,created_at,profiles(display_name,username)").ilike("category", pattern).order("created_at", { ascending: false }).limit(30),
       ]);
 
@@ -57,11 +57,11 @@ export default function SearchPage() {
         {["Gists","People","Categories"].map((item) => <button key={item} className={tab === item ? "tab active" : "tab"} onClick={() => setTab(item)}>{item}</button>)}
       </div>
       {loading ? <p>Searching…</p> : tab === "People" ? (
-        <div className="feed">{people.map((person) => <Link className="post" key={person.id} href={"/profile/" + person.username}><div className="post-head"><div className="avatar">{person.display_name?.[0]?.toUpperCase() ?? "G"}</div><div className="identity"><strong>{person.display_name}</strong><span>@{person.username}</span></div></div><p className="bio">{person.bio}</p></Link>)}</div>
+        <div className="feed">{people.map((person) => <Link className="post" key={person.id} href={"/profile/" + person.username}><div className="post-head"><div className="avatar">{person.avatar_url?<img src={person.avatar_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}}/>:(person.display_name?.[0]?.toUpperCase() ?? "G")}</div><div className="identity"><strong>{person.display_name}</strong><span>@{person.username}</span></div></div><p className="bio">{person.bio}</p></Link>)}</div>
       ) : tab === "Categories" ? (
         <div className="category-grid">{categories.filter((item) => !q || item.toLowerCase().includes(q.toLowerCase())).map((item) => <button key={item} onClick={() => { setQ(item); setTab("Gists"); }}>{item}</button>)}</div>
       ) : (
-        <div className="feed">{gists.map((post) => <Link className="post" key={post.id} href={"/gist/" + post.id}><div className="post-head"><div className="avatar">{post.profiles?.display_name?.[0]?.toUpperCase() ?? "G"}</div><div className="identity"><strong>{post.profiles?.display_name ?? "Gista User"}</strong><span>@{post.profiles?.username ?? "user"} · {new Date(post.created_at).toLocaleString()}</span></div><span className="category">{post.category}</span></div>{post.content_type === "photo" && post.media_url && <img src={post.media_url} alt="Gist" style={{ width: "100%", borderRadius: 16 }} />}{post.content_type === "voice" && post.media_url && <audio controls src={post.media_url} />}{post.body && <p className="post-text">{post.body}</p>}</Link>)}</div>
+        <div className="feed">{gists.map((post) => <Link className="post" key={post.id} href={"/gist/" + post.id}><div className="post-head"><div className="avatar">{post.profiles?.avatar_url?<img src={post.profiles.avatar_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}}/>:(post.profiles?.display_name?.[0]?.toUpperCase() ?? "G")}</div><div className="identity"><strong>{post.profiles?.display_name ?? "Gista User"}</strong><span>@{post.profiles?.username ?? "user"} · {new Date(post.created_at).toLocaleString()}</span></div><span className="category">{post.category}</span></div>{post.content_type === "photo" && post.media_url && <img src={post.media_url} alt="Gist" style={{ width: "100%", borderRadius: 16 }} />}{post.content_type === "voice" && post.media_url && <audio controls src={post.media_url} />}{post.body && <p className="post-text">{post.body}</p>}</Link>)}</div>
       )}
     </main>
   );
