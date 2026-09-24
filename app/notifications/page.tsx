@@ -64,13 +64,35 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     let active = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
     supabase.auth.getUser().then(({ data }) => {
       if (!active) return;
       const id = data.user?.id ?? null;
       setUserId(id);
       load(id ?? undefined);
+
+      if (id) {
+        channel = supabase
+          .channel("notifications-" + id)
+          .on(
+            "postgres_changes",
+            { event: "INSERT", schema: "public", table: "notifications", filter: "recipient_id=eq." + id },
+            () => load(id),
+          )
+          .on(
+            "postgres_changes",
+            { event: "UPDATE", schema: "public", table: "notifications", filter: "recipient_id=eq." + id },
+            () => load(id),
+          )
+          .subscribe();
+      }
     });
-    return () => { active = false; };
+
+    return () => {
+      active = false;
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
   async function markAllRead() {
