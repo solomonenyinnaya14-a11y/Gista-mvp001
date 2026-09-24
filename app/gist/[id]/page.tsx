@@ -6,13 +6,24 @@ import { Mic, Square } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import VoiceNote from "@/components/VoiceNote";
 
-type Profile = { display_name: string | null; username: string | null };
+type Profile = { display_name: string | null; username: string | null; avatar_url: string | null };
 type RawProfile = Profile | Profile[] | null | undefined;
 type Reply = { id: string; body: string | null; content_type: string; media_url: string | null; voice_duration_seconds: number | null; created_at: string; author_id: string; profiles: Profile | null };
 type RawReply = Omit<Reply, "profiles"> & { profiles: RawProfile };
 type Response = { id: string; body: string | null; content_type: string; media_url: string | null; voice_duration_seconds: number | null; created_at: string; author_id: string; profiles: Profile | null; replies: Reply[] };
-type RawResponse = Omit<Response, "profiles" | "replies"> & { profiles: RawProfile; replies: RawReply[] };
 type Post = { id: string; author_id: string; body: string | null; content_type: string; media_url: string | null; voice_duration_seconds: number | null; category: string; status: string; created_at: string; profiles: Profile | null };
+
+function ProfileAvatar({ profile }: { profile: Profile | null }) {
+  return (
+    <div className="avatar">
+      {profile?.avatar_url ? (
+        <img src={profile.avatar_url} alt="" className="avatar-image" />
+      ) : (
+        profile?.display_name?.[0]?.toUpperCase() ?? "G"
+      )}
+    </div>
+  );
+}
 
 export default function GistPage() {
   const { id } = useParams<{ id: string }>();
@@ -82,7 +93,7 @@ export default function GistPage() {
     ];
     const uniqueAuthorIds = [...new Set(authorIds)];
     const { data: profileRows, error: profileError } = uniqueAuthorIds.length
-      ? await supabase.from("profiles").select("id,display_name,username").in("id", uniqueAuthorIds)
+      ? await supabase.from("profiles").select("id,display_name,username,avatar_url").in("id", uniqueAuthorIds)
       : { data: [], error: null };
     if (profileError) {
       setError(profileError.message);
@@ -276,10 +287,10 @@ export default function GistPage() {
   return (
     <main className="content">
       <button onClick={() => router.back()}>← Back</button>
-      <article className="post">
+      <article className="post gist-detail-post">
         <div className="post-head">
           <button type="button" onClick={() => setMenu((value) => !value)} aria-label="More options">⋯</button>
-          <div className="avatar">{post.profiles?.display_name?.[0]?.toUpperCase() ?? "G"}</div>
+          <ProfileAvatar profile={post.profiles} />
           <div className="identity"><strong>{post.profiles?.display_name ?? "Gista User"}</strong><span>@{post.profiles?.username ?? "user"} · {new Date(post.created_at).toLocaleString()}</span></div>
           <span className="category">{post.category}</span>
         </div>
@@ -343,7 +354,7 @@ export default function GistPage() {
         <h3>{responses.length} {responses.length === 1 ? "Response" : "Responses"}</h3>
         {responses.length === 0 ? <p>No responses yet. Start the Gist.</p> : responses.map((response) => (
           <article className="post" key={response.id}>
-            <div className="post-head"><div className="avatar">{response.profiles?.display_name?.[0]?.toUpperCase() ?? "G"}</div><div className="identity"><strong>{response.profiles?.display_name ?? "Gista User"}</strong><span>@{response.profiles?.username ?? "user"} · {new Date(response.created_at).toLocaleString()}</span></div></div>
+            <div className="post-head"><ProfileAvatar profile={response.profiles} /><div className="identity"><strong>{response.profiles?.display_name ?? "Gista User"}</strong><span>@{response.profiles?.username ?? "user"} · {new Date(response.created_at).toLocaleString()}</span></div></div>
             {response.content_type === "photo" && response.media_url && <img src={response.media_url} alt="Response" className="response-media" />}
             {response.body && <p className="post-text">{response.body}</p>}
             {response.content_type === "voice" && response.media_url && <VoiceNote src={response.media_url} durationHint={response.voice_duration_seconds} />}
@@ -379,7 +390,7 @@ export default function GistPage() {
                 <button className="primary small" onClick={() => postReply(response)}>Post reply</button>
               </div>
             )}
-            {response.replies.length > 0 && <div className="replies">{response.replies.map((reply) => <div className="reply" key={reply.id}><strong>{reply.profiles?.display_name ?? "Gista User"}</strong><span> @{reply.profiles?.username ?? "user"}</span>{reply.content_type === "photo" && reply.media_url && <img src={reply.media_url} alt="Reply" className="response-media" />}{reply.body && <p>{reply.body}</p>}{reply.content_type === "voice" && reply.media_url && <VoiceNote src={reply.media_url} durationHint={reply.voice_duration_seconds} />}{userId && <button className="response-reply" onClick={async () => { const reason = prompt("Why are you reporting this reply?"); if (!reason) return; const result = await supabase.from("reports").insert({ reporter_id: userId, reply_id: reply.id, reason }); if (result.error) setError(result.error.message); else setError("Reply report submitted."); }}>Report</button>}{userId === reply.author_id && <button className="response-reply" onClick={async () => {
+            {response.replies.length > 0 && <div className="replies">{response.replies.map((reply) => <div className="reply" key={reply.id}><ProfileAvatar profile={reply.profiles} /><div className="reply-content"><strong>{reply.profiles?.display_name ?? "Gista User"}</strong><span> @{reply.profiles?.username ?? "user"}</span>{reply.content_type === "photo" && reply.media_url && <img src={reply.media_url} alt="Reply" className="response-media" />}{reply.body && <p>{reply.body}</p>}{reply.content_type === "voice" && reply.media_url && <VoiceNote src={reply.media_url} durationHint={reply.voice_duration_seconds} />}{userId && <button className="response-reply" onClick={async () => { const reason = prompt("Why are you reporting this reply?"); if (!reason) return; const result = await supabase.from("reports").insert({ reporter_id: userId, reply_id: reply.id, reason }); if (result.error) setError(result.error.message); else setError("Reply report submitted."); }}>Report</button>}{userId === reply.author_id && <button className="response-reply" onClick={async () => {
                   if (!confirm("Delete this reply?")) return;
                   const result = await supabase.from("replies").delete().eq("id", reply.id).eq("author_id", userId);
                   if (result.error) setError(result.error.message);
