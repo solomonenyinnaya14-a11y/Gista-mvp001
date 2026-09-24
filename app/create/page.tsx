@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Mic, ImagePlus, Type, Square } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import VoiceNote from "@/components/VoiceNote";
 
 const categories = ["Music","Movies / Entertainment","Art","Banter","Fun","Gossip","Sports","Relationships","Business","Technology","Education","Lifestyle","Society","News & Current Events","Opinions","Stories"];
 
@@ -16,7 +17,7 @@ export default function CreatePage() {
   const [category, setCategory] = useState("");
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
-  const [audio, setAudio] = useState<Blob | null>(null);
+  const [audio, setAudio] = useState<Blob | null>(null);\n  const [audioUrl, setAudioUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const recorder = useRef<MediaRecorder | null>(null);
@@ -24,7 +25,7 @@ export default function CreatePage() {
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const router = useRouter();
 
-  useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
+  useEffect(() => {\n    return () => { if (photoPreview) URL.revokeObjectURL(photoPreview); };\n  }, [photoPreview]);\n\n  useEffect(() => {\n    if (!audio) { setAudioUrl(""); return; }\n    const url = URL.createObjectURL(audio);\n    setAudioUrl(url);\n    return () => URL.revokeObjectURL(url);\n  }, [audio]);
 
   function stop() {
     if (recorder.current?.state === "recording") recorder.current.stop();
@@ -136,7 +137,7 @@ export default function CreatePage() {
         <div className="format-row">
           <button type="button" className={mode === "text" ? "active" : ""} onClick={() => setMode("text")}><Type />Text</button>
           <button type="button" className={mode === "photo" ? "active" : ""} onClick={() => setMode("photo")}><ImagePlus />Photo</button>
-          <button type="button" className={mode === "voice" ? "active" : ""} onClick={() => { setMode("voice"); setAudio(null); }}><Mic />Voice</button>
+          <button type="button" className={mode === "voice" ? "active" : ""} onClick={() => { setMode("voice"); setAudio(null); setAudioUrl(""); }}><Mic />Voice</button>
         </div>
 
         {mode === "text" && (
@@ -171,7 +172,7 @@ export default function CreatePage() {
             ) : (
               <button type="button" className="primary" onClick={start}><Mic /> {audio ? "Record again" : "Start recording"}</button>
             )}
-            {audio && <audio controls src={URL.createObjectURL(audio)} />}
+            {audio && audioUrl && <VoiceNote src={audioUrl} durationHint={seconds} />}
           </div>
         )}
 
