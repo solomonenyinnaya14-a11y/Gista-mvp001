@@ -316,7 +316,7 @@ export default function HomePage() {
             <div className="empty-state"><h3>We couldn&apos;t load the Gists</h3><p>{feedError}</p><button className="primary small" onClick={() => void loadPosts(user)}>Try again</button></div>
           ) : posts.length === 0 ? (
             <div className="empty-state"><h3>No Gists yet</h3><p>{tab === "Following" ? "Follow people to see their Gists here." : "Be the first person to start a Gist."}</p></div>
-          ) : posts.map((post) => (
+          ) : posts.map((post, index) => (
             <article className="post" key={post.id}>
               <div className="post-head">
                 <Link href={post.profiles?.username ? "/profile/" + post.profiles.username : "/profile"} className="avatar" aria-label={"Open " + (post.profiles?.display_name ?? "Gista User") + " profile"}>
