@@ -10,6 +10,8 @@ likes(user_id, post_id, created_at)
 saves(user_id, post_id, created_at)
 follows(follower_id, following_id, created_at)
 notifications(id, recipient_id, actor_id, type, post_id, response_id, read_at, created_at)
+blocks(blocker_id, blocked_id, created_at)
+not_interested(user_id, post_id, created_at)
 
 MVP content intentionally excludes video, DMs, reposts, mute, communities and monetization.
 
