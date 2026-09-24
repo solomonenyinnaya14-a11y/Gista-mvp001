@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import VoiceNote from "@/components/VoiceNote";
 
 type PublicPost = {
   id: string;
@@ -50,7 +51,7 @@ export default function PublicProfile() {
       supabase.from("posts").select("id", { count: "exact", head: true }).eq("author_id", data.id),
       supabase.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", data.id),
       supabase.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", data.id),
-      supabase.from("posts").select("id,body,content_type,media_url,category,created_at").eq("author_id", data.id).order("created_at", { ascending: false }).limit(30),
+      supabase.from("posts").select("id,body,content_type,media_url,category,created_at,voice_duration_seconds").eq("author_id", data.id).order("created_at", { ascending: false }).limit(30),
     ]);
 
     setFollowing(!!followState.data);
@@ -117,7 +118,7 @@ export default function PublicProfile() {
         <div className="profile-avatar">{profile.avatar_url ? <img src={profile.avatar_url} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : (profile.display_name?.[0]?.toUpperCase() ?? "G")}</div>
         <h1>{profile.display_name ?? "Gista User"}</h1>
         <p>@{profile.username}</p>
-        <p className="bio">{profile.bio || "A place to talk, share and connect."}</p>
+        {profile.bio && <p className="bio">{profile.bio}</p>}
 
         <div className="profile-stats">
           <span><b>{counts.gists}</b> Gists</span>
@@ -153,7 +154,7 @@ export default function PublicProfile() {
                 <img src={post.media_url} alt="Gist" style={{ width: "100%", borderRadius: 16, marginTop: 10 }} />
               )}
               {post.content_type === "voice" && post.media_url && (
-                <audio controls src={post.media_url} style={{ width: "100%", marginTop: 10 }} />
+                <VoiceNote src={post.media_url} durationHint={post.voice_duration_seconds} />
               )}
               {post.body && <p className="post-text">{post.body}</p>}
             </Link>
