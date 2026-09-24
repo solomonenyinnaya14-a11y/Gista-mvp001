@@ -12,7 +12,7 @@ type Notification = {
   response_id: string | null;
   read_at: string | null;
   created_at: string;
-  actor: { display_name: string | null; username: string | null } | null;
+  actor: { display_name: string | null; username: string | null; avatar_url: string | null } | null;
 };
 
 function message(n: Notification) {
@@ -43,7 +43,7 @@ export default function NotificationsPage() {
 
     const { data, error } = await supabase
       .from("notifications")
-      .select("id,type,post_id,response_id,read_at,created_at,actor:profiles!notifications_actor_id_fkey(display_name,username)")
+      .select("id,type,post_id,response_id,read_at,created_at,actor:profiles!notifications_actor_id_fkey(display_name,username,avatar_url)")
       .eq("recipient_id", currentId)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -136,7 +136,13 @@ export default function NotificationsPage() {
             const content = (
               <div className={item.read_at ? "post notification-item" : "post notification-item unread"}>
                 <div className="post-head">
-                  <div className="avatar">{item.actor?.display_name?.[0]?.toUpperCase() ?? "G"}</div>
+                  <div className="avatar notification-avatar">
+                    {item.actor?.avatar_url ? (
+                      <img src={item.actor.avatar_url} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} />
+                    ) : (
+                      item.actor?.display_name?.[0]?.toUpperCase() ?? "G"
+                    )}
+                  </div>
                   <div className="identity">
                     <strong>{message(item)}</strong>
                     <span>{new Date(item.created_at).toLocaleString()}</span>
@@ -144,7 +150,7 @@ export default function NotificationsPage() {
                 </div>
               </div>
             );
-            return href ? <Link key={item.id} href={href} onClick={() => openNotification(item)}>{content}</Link> : <button key={item.id} onClick={() => openNotification(item)}>{content}</button>;
+            return href ? <Link className="notification-link" key={item.id} href={href} onClick={() => openNotification(item)}>{content}</Link> : <button className="notification-link notification-button" key={item.id} onClick={() => openNotification(item)}>{content}</button>;
           })}
         </section>
       )}
