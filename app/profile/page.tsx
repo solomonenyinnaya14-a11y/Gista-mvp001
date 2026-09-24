@@ -59,7 +59,8 @@ export default function ProfilePage() {
     setLoading(true);
     setError("");
 
-    const { data: { user } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
     if (!user) {
       router.push("/auth");
       return;
