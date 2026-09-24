@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Mic, Square } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -17,12 +17,13 @@ type Post = { id: string; author_id: string; body: string | null; content_type: 
 export default function GistPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [post, setPost] = useState<Post | null>(null);
   const [responses, setResponses] = useState<Response[]>([]);
   const [text, setText] = useState("");
   const [voice, setVoice] = useState<Blob | null>(null);
+  const [voicePreviewUrl, setVoicePreviewUrl] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
@@ -45,6 +46,16 @@ export default function GistPage() {
   const replyRecorder = useRef<MediaRecorder | null>(null);
   const replyChunks = useRef<Blob[]>([]);
   const replyTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!voice) {
+      setVoicePreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(voice);
+    setVoicePreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [voice]);
 
   function storagePath(url: string | null, bucket: string) {
     if (!url) return null;
@@ -93,8 +104,8 @@ export default function GistPage() {
   useEffect(() => {
     let cancelled = false;
     async function initialize() {
-      const { data } = await supabase.auth.getUser();
-      const currentUserId = data.user?.id ?? null;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentUserId = sessionData.session?.user?.id ?? null;
       if (cancelled) return;
       setUserId(currentUserId);
       await load(currentUserId);
@@ -140,6 +151,7 @@ export default function GistPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/auth"); return; }
     if (!text.trim() && !voice) return;
+    if (voice && seconds < 1) { setError("Record at least 1 second of voice."); return; }
 
     let media_url: string | null = null;
     if (voice) {
@@ -158,8 +170,18 @@ export default function GistPage() {
       voice_duration_seconds: voice ? seconds : null,
     });
 
-    if (insertError) setError(insertError.message);
-    else { setText(""); setVoice(null); setSeconds(0); await load(); }
+    if (insertError) {
+      if (media_url) {
+        const path = storagePath(media_url, "gist-audio");
+        if (path) await supabase.storage.from("gist-audio").remove([path]);
+      }
+      setError(insertError.message);
+    } else {
+      setText("");
+      setVoice(null);
+      setSeconds(0);
+      await load();
+    }
   }
 
   function stopReplyVoice() {
@@ -299,7 +321,7 @@ export default function GistPage() {
         <h3>Join the Gist</h3>
         <textarea value={text} onChange={(event) => setText(event.target.value)} placeholder="Write a response…" />
         {recording ? <button type="button" className="primary" onClick={stopVoice}><Square /> Stop {seconds}s / 60s</button> : <button type="button" onClick={startVoice}><Mic /> {voice ? "Record again" : "Voice response"}</button>}
-        {voice && <audio controls src={URL.createObjectURL(voice)} />}
+        {voicePreviewUrl && <VoiceNote src={voicePreviewUrl} durationHint={seconds || null} />}
         <button className="primary" onClick={respond}>Post response</button>
         {error && <div className="auth-message">{error}</div>}
       </section>
