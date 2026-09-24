@@ -217,8 +217,8 @@ export default function ProfilePage() {
     }
 
     setCoverUploading(true);
-    const { data: { user } } = await supabase.auth.getSession();
-    const currentUser = user?.user;
+    const { data: { session } } = await supabase.auth.getSession();
+    const currentUser = session?.user ?? null;
     if (!currentUser) {
       setCoverUploading(false);
       router.push("/auth");
