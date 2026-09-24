@@ -16,6 +16,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarError, setAvatarError] = useState("");
+  const [gists, setGists] = useState<any[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -31,6 +32,8 @@ export default function ProfilePage() {
         supabase.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", user.id),
       ]);
       setStats({ gists: g.count ?? 0, followers: followers.count ?? 0, following: following.count ?? 0 });
+      const { data: ownGists } = await supabase.from("posts").select("id,content_type,body,media_url,category,status,created_at").eq("author_id", user.id).order("created_at", { ascending: false }).limit(20);
+      setGists(ownGists ?? []);
       setLoading(false);
     }
     load();
@@ -118,6 +121,18 @@ export default function ProfilePage() {
               </div>
             )}
             <button className="primary small" onClick={signOut}>Log out</button>
+            <section className="feed" style={{ width: "100%", marginTop: 18 }}>
+              <h2>My Gists</h2>
+              {gists.length === 0 ? <p>No Gists yet. Start your first Gist.</p> : gists.map((gist) => (
+                <Link className="post" href={`/gist/${gist.id}`} key={gist.id}>
+                  <div><strong>{gist.content_type === "voice" ? "🎙️ Voice Gist" : gist.content_type === "photo" ? "📷 Photo Gist" : "Text Gist"}</strong><span> · {gist.category}</span></div>
+                  {gist.body && <p>{gist.body}</p>}
+                  {gist.content_type === "photo" && gist.media_url && <img src={gist.media_url} alt="" style={{ width: "100%", borderRadius: 12, marginTop: 8 }} />}
+                  {gist.content_type === "voice" && gist.media_url && <audio controls src={gist.media_url} style={{ width: "100%", marginTop: 8 }} />}
+                  <small>{new Date(gist.created_at).toLocaleString()} · {gist.status}</small>
+                </Link>
+              ))}
+            </section>
           </>
         )}
       </section>
