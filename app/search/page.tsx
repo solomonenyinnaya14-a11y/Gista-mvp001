@@ -1,6 +1,55 @@
 "use client";
-import {useEffect,useState} from "react";import {Search as SearchIcon,ArrowLeft} from "lucide-react";import Link from "next/link";import {createClient} from "@/lib/supabase/client";
-const categories=["Music","Movies / Entertainment","Art","Banter","Fun","Gossip","Sports","Relationships","Business","Technology","Education","Lifestyle","Society","News & Current Events","Opinions","Stories"];
-export default function SearchPage(){const supabase=createClient();const [q,setQ]=useState("");const [tab,setTab]=useState("Gists");const [gists,setGists]=useState<any[]>([]);const [people,setPeople]=useState<any[]>([]);const [loading,setLoading]=useState(false);
-useEffect(()=>{const t=setTimeout(async()=>{if(!q.trim()){setGists([]);setPeople([]);return}setLoading(true);const term=q.trim();const [p,g]=await Promise.all([supabase.from("profiles").select("id,username,display_name,bio").or(`username.ilike.%${term}%,display_name.ilike.%${term}%`).limit(20),supabase.from("posts").select("id,body,content_type,media_url,category,created_at,profiles(display_name,username)").or(`body.ilike.%${term}%,category.ilike.%${term}%`).order("created_at",{ascending:false}).limit(30)]);setPeople(p.data??[]);setGists(g.data??[]);setLoading(false)},300);return()=>clearTimeout(t)},[q]);
-return <main className="content"><header className="simple-header"><Link href="/"><ArrowLeft size={18}/></Link><strong>Search</strong><span/></header><div className="search-box"><SearchIcon size={18}/><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Search Gists, people, categories…"/></div><div className="feed-tabs"><button className={tab==="Gists"?"tab active":"tab"} onClick={()=>setTab("Gists")}>Gists</button><button className={tab==="People"?"tab active":"tab"} onClick={()=>setTab("People")}>People</button><button className={tab==="Categories"?"tab active":"tab"} onClick={()=>setTab("Categories")}>Categories</button></div>{loading?<p>Searching…</p>:tab==="People"?<div className="feed">{people.map(p=><Link className="post" key={p.id} href={"/profile/"+p.username}><div className="post-head"><div className="avatar">{p.display_name?.[0]?.toUpperCase()??"G"}</div><div className="identity"><strong>{p.display_name}</strong><span>@{p.username}</span></div></div><p className="bio">{p.bio}</p></Link>)}</div>:tab==="Categories"?<div className="category-grid">{categories.filter(x=>!q||x.toLowerCase().includes(q.toLowerCase())).map(x=><button key={x} onClick={()=>{setQ(x);setTab("Gists")}}>{x}</button>)}</div>:<div className="feed">{gists.map(p=><Link className="post" key={p.id} href={"/gist/"+p.id}><div className="post-head"><div className="avatar">{p.profiles?.display_name?.[0]?.toUpperCase()??"G"}</div><div className="identity"><strong>{p.profiles?.display_name??"Gista User"}</strong><span>@{p.profiles?.username??"user"} · {new Date(p.created_at).toLocaleString()}</span></div><span className="category">{p.category}</span></div>{p.content_type==="photo"&&p.media_url&&<img src={p.media_url} alt="Gist" style={{width:"100%",borderRadius:16}}/>}{p.content_type==="voice"&&p.media_url&&<audio controls src={p.media_url}/>} {p.body&&<p className="post-text">{p.body}</p>}</Link>)}</div>}</main>
+
+import { useEffect, useState } from "react";
+import { Search as SearchIcon, ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+
+const categories = ["Music","Movies / Entertainment","Art","Banter","Fun","Gossip","Sports","Relationships","Business","Technology","Education","Lifestyle","Society","News & Current Events","Opinions","Stories"];
+
+export default function SearchPage() {
+  const supabase = createClient();
+  const [q, setQ] = useState("");
+  const [tab, setTab] = useState("Gists");
+  const [gists, setGists] = useState<any[]>([]);
+  const [people, setPeople] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      const term = q.trim();
+      if (!term) {
+        setGists([]);
+        setPeople([]);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
+      const [peopleResult, gistsResult] = await Promise.all([
+        supabase.from("profiles").select("id,username,display_name,bio").or("username.ilike.%" + term + "%,display_name.ilike.%" + term + "%").limit(20),
+        supabase.from("posts").select("id,body,content_type,media_url,category,created_at,profiles(display_name,username)").or("body.ilike.%" + term + "%,category.ilike.%" + term + "%").order("created_at", { ascending: false }).limit(30),
+      ]);
+      setPeople(peopleResult.data ?? []);
+      setGists(gistsResult.data ?? []);
+      setLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [q, supabase]);
+
+  return (
+    <main className="content">
+      <header className="simple-header"><Link href="/"><ArrowLeft size={18} /></Link><strong>Search</strong><span /></header>
+      <div className="search-box"><SearchIcon size={18} /><input autoFocus value={q} onChange={(event) => setQ(event.target.value)} placeholder="Search Gists, people, categories…" /></div>
+      <div className="feed-tabs">
+        {["Gists","People","Categories"].map((item) => <button key={item} className={tab === item ? "tab active" : "tab"} onClick={() => setTab(item)}>{item}</button>)}
+      </div>
+      {loading ? <p>Searching…</p> : tab === "People" ? (
+        <div className="feed">{people.map((person) => <Link className="post" key={person.id} href={"/profile/" + person.username}><div className="post-head"><div className="avatar">{person.display_name?.[0]?.toUpperCase() ?? "G"}</div><div className="identity"><strong>{person.display_name}</strong><span>@{person.username}</span></div></div><p className="bio">{person.bio}</p></Link>)}</div>
+      ) : tab === "Categories" ? (
+        <div className="category-grid">{categories.filter((item) => !q || item.toLowerCase().includes(q.toLowerCase())).map((item) => <button key={item} onClick={() => { setQ(item); setTab("Gists"); }}>{item}</button>)}</div>
+      ) : (
+        <div className="feed">{gists.map((post) => <Link className="post" key={post.id} href={"/gist/" + post.id}><div className="post-head"><div className="avatar">{post.profiles?.display_name?.[0]?.toUpperCase() ?? "G"}</div><div className="identity"><strong>{post.profiles?.display_name ?? "Gista User"}</strong><span>@{post.profiles?.username ?? "user"} · {new Date(post.created_at).toLocaleString()}</span></div><span className="category">{post.category}</span></div>{post.content_type === "photo" && post.media_url && <img src={post.media_url} alt="Gist" style={{ width: "100%", borderRadius: 16 }} />}{post.content_type === "voice" && post.media_url && <audio controls src={post.media_url} />}{post.body && <p className="post-text">{post.body}</p>}</Link>)}</div>
+      )}
+    </main>
+  );
+}
