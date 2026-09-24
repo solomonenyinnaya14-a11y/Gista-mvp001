@@ -3,9 +3,11 @@ name: Gista CI
 on:
   push:
     branches:
+      - main
       - gista-rebuild
   pull_request:
     branches:
+      - main
       - gista-rebuild
 
 jobs:
