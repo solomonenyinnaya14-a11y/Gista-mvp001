@@ -29,3 +29,5 @@
 .profile-editor{border-radius:22px;margin-top:12px}
 .profile-editor label{font-size:14px}
 @media(max-width:480px){.profile-hero{padding-left:18px;padding-right:18px}.profile-wrap{padding-left:0;padding-right:0}.profile-editor{margin-left:10px;margin-right:10px}}
+
+.gist-media{display:block;width:100%;max-height:620px;object-fit:contain;border-radius:16px;background:#f4f4f5;margin-top:10px}
