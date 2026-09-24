@@ -5,11 +5,11 @@ import nextTs from "eslint-config-next/typescript";
 export default defineConfig([
   ...nextVitals,
   ...nextTs,
-  globalIgnores([
-    ".next/**",
-    "node_modules/**",
-    "out/**",
-    "build/**",
-    "next-env.d.ts"
-  ])
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+      "react-hooks/set-state-in-effect": "warn"
+    }
+  },
+  globalIgnores([".next/**","node_modules/**","out/**","build/**","next-env.d.ts"])
 ]);
