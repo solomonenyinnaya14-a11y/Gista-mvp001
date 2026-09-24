@@ -44,12 +44,12 @@ export default function GistPage() {
   const replyChunks = useRef<Blob[]>([]);
   const replyTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  async function load() {
+  async function load(currentUserId: string | null = userId) {
     const [postResult, responseResult, likeResult, responseSaveResult] = await Promise.all([
       supabase.from("posts").select("id,author_id,body,content_type,media_url,category,status,created_at,profiles(display_name,username)").eq("id", id).single(),
       supabase.from("responses").select("id,body,content_type,media_url,created_at,author_id,profiles(display_name,username),replies(id,body,content_type,media_url,created_at,author_id,profiles(display_name,username))").eq("post_id", id).order("created_at", { ascending: true }),
       supabase.from("likes").select("post_id", { count: "exact", head: true }).eq("post_id", id),
-      userId ? supabase.from("response_saves").select("response_id").eq("user_id", userId) : Promise.resolve({ data: [] as { response_id: string }[] }),
+      currentUserId ? supabase.from("response_saves").select("response_id").eq("user_id", currentUserId) : Promise.resolve({ data: [] as { response_id: string }[] }),
     ]);
 
     if (postResult.error) setError(postResult.error.message);
@@ -68,8 +68,16 @@ export default function GistPage() {
   }
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
-    load();
+    let cancelled = false;
+    async function initialize() {
+      const { data } = await supabase.auth.getUser();
+      const currentUserId = data.user?.id ?? null;
+      if (cancelled) return;
+      setUserId(currentUserId);
+      await load(currentUserId);
+    }
+    initialize();
+    return () => { cancelled = true; };
   }, [id]);
 
   function stopVoice() {
@@ -267,6 +275,18 @@ export default function GistPage() {
             {response.body && <p className="post-text">{response.body}</p>}
             {response.content_type === "voice" && response.media_url && <audio controls src={response.media_url} />}
             <button className="response-reply" onClick={() => setOpenReply(openReply === response.id ? null : response.id)}>Reply</button>
+            {userId && <button className="response-reply" onClick={async () => {
+              const saved = savedResponses.has(response.id);
+              const result = saved
+                ? await supabase.from("response_saves").delete().eq("user_id", userId).eq("response_id", response.id)
+                : await supabase.from("response_saves").insert({ user_id: userId, response_id: response.id });
+              if (result.error) setError(result.error.message);
+              else setSavedResponses((current) => {
+                const next = new Set(current);
+                if (saved) next.delete(response.id); else next.add(response.id);
+                return next;
+              });
+            }}>{savedResponses.has(response.id) ? "Unsave" : "Save"}</button>}
             {userId === response.author_id && <button className="response-reply" onClick={async () => { if (!confirm("Delete this response?")) return; await supabase.from("responses").delete().eq("id", response.id).eq("author_id", userId); await load(); }}>Delete</button>}
             {openReply === response.id && (
               <div className="reply-box">
