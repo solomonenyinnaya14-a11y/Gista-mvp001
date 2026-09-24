@@ -10,7 +10,7 @@ export default function PrivacyPage() {
       <h3>Private accounts</h3><p>When your account is private, your profile and Gists are restricted to you and people who follow you.</p>
       <h3>Your controls</h3><p>You can edit your profile, make your account private, block users, mark content Not Interested, save content, and delete your account.</p>
       <h3>Security</h3><p>Gista uses authentication, database access controls and storage policies to restrict unauthorized access.</p>
-      <h3>Account deletion</h3><p>You can permanently delete your account from Settings. Deletion removes the account through Gista's account-deletion process.</p>
+      <h3>Account deletion</h3><p>You can permanently delete your account from Settings. Deletion removes the account through Gista&apos;s account-deletion process.</p>
       <p><strong>Note:</strong> This is the MVP privacy information page, not a substitute for a formal legal privacy policy.</p>
     </section>
   </main>;
