@@ -108,7 +108,7 @@ export default function PublicProfile() {
       </header>
 
       <section className="profile-card">
-        <div className="profile-avatar">{profile.display_name?.[0]?.toUpperCase() ?? "G"}</div>
+        <div className="profile-avatar">{profile.avatar_url ? <img src={profile.avatar_url} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : (profile.display_name?.[0]?.toUpperCase() ?? "G")}</div>
         <h1>{profile.display_name ?? "Gista User"}</h1>
         <p>@{profile.username}</p>
         <p className="bio">{profile.bio || "A place to talk, share and connect."}</p>
@@ -134,7 +134,7 @@ export default function PublicProfile() {
           gists.map((post) => (
             <Link className="post" key={post.id} href={"/gist/" + post.id}>
               <div className="post-head">
-                <div className="avatar">{profile.display_name?.[0]?.toUpperCase() ?? "G"}</div>
+                <div className="avatar">{profile.avatar_url ? <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : (profile.display_name?.[0]?.toUpperCase() ?? "G")}</div>
                 <div className="identity">
                   <strong>{profile.display_name ?? "Gista User"}</strong>
                   <span>@{profile.username} · {new Date(post.created_at).toLocaleString()}</span>
