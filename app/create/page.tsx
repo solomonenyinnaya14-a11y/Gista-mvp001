@@ -24,6 +24,8 @@ export default function CreatePage() {
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const router = useRouter();
 
+  function revokePreview() { if (photoPreview) URL.revokeObjectURL(photoPreview); }
+
   function stop() {
     if (recorder.current?.state === "recording") recorder.current.stop();
     if (timer.current) clearInterval(timer.current);
@@ -109,8 +111,16 @@ export default function CreatePage() {
       voice_duration_seconds: mode === "voice" ? seconds : null,
     });
 
-    if (insertError) setError(insertError.message);
-    else router.push("/");
+    if (insertError) {
+      if (media_url) {
+        const storagePath = media_url.split("/storage/v1/object/public/")[1];
+        if (storagePath) {
+          const [bucket, ...parts] = storagePath.split("/");
+          await supabase.storage.from(bucket).remove([parts.join("/")]);
+        }
+      }
+      setError(insertError.message);
+    } else router.push("/");
     setLoading(false);
   }
 
@@ -137,6 +147,9 @@ export default function CreatePage() {
           <div>
             <input type="file" accept="image/*" onChange={(event) => {
               const file = event.target.files?.[0] ?? null;
+              if (file && !["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Use a JPG, PNG, or WebP image."); return; }
+              if (file && file.size > 10 * 1024 * 1024) { setError("Gist photos must be 10MB or smaller."); return; }
+              if (photoPreview) URL.revokeObjectURL(photoPreview);
               setPhoto(file);
               setPhotoPreview(file ? URL.createObjectURL(file) : "");
             }} />
