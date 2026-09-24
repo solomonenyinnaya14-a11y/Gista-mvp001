@@ -24,15 +24,28 @@ export default function SearchPage() {
         setLoading(false);
         return;
       }
+
       setLoading(true);
-      const [peopleResult, gistsResult] = await Promise.all([
-        supabase.from("profiles").select("id,username,display_name,bio").or("username.ilike.%" + term + "%,display_name.ilike.%" + term + "%").limit(20),
-        supabase.from("posts").select("id,body,content_type,media_url,category,created_at,profiles(display_name,username)").or("body.ilike.%" + term + "%,category.ilike.%" + term + "%").order("created_at", { ascending: false }).limit(30),
+      const pattern = `%${term}%`;
+
+      const [usernameResult, displayNameResult, bodyResult, categoryResult] = await Promise.all([
+        supabase.from("profiles").select("id,username,display_name,bio").ilike("username", pattern).limit(20),
+        supabase.from("profiles").select("id,username,display_name,bio").ilike("display_name", pattern).limit(20),
+        supabase.from("posts").select("id,body,content_type,media_url,category,created_at,profiles(display_name,username)").ilike("body", pattern).order("created_at", { ascending: false }).limit(30),
+        supabase.from("posts").select("id,body,content_type,media_url,category,created_at,profiles(display_name,username)").ilike("category", pattern).order("created_at", { ascending: false }).limit(30),
       ]);
-      setPeople(peopleResult.data ?? []);
-      setGists(gistsResult.data ?? []);
+
+      const peopleMap = new Map<string, any>();
+      [...(usernameResult.data ?? []), ...(displayNameResult.data ?? [])].forEach((person) => peopleMap.set(person.id, person));
+
+      const gistMap = new Map<string, any>();
+      [...(bodyResult.data ?? []), ...(categoryResult.data ?? [])].forEach((post) => gistMap.set(post.id, post));
+
+      setPeople([...peopleMap.values()].slice(0, 20));
+      setGists([...gistMap.values()].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 30));
       setLoading(false);
     }, 300);
+
     return () => clearTimeout(timer);
   }, [q, supabase]);
 
