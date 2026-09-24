@@ -24,6 +24,7 @@ export default function PublicProfile() {
   const [counts, setCounts] = useState({ gists: 0, followers: 0, following: 0 });
   const [gists, setGists] = useState<PublicPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [privateMessage, setPrivateMessage] = useState("");
 
   async function load() {
     setLoading(true);
@@ -32,7 +33,7 @@ export default function PublicProfile() {
 
     const { data } = await supabase
       .from("profiles")
-      .select("id,username,display_name,bio,avatar_url")
+      .select("id,username,display_name,bio,avatar_url,is_private")
       .eq("username", username)
       .single();
 
@@ -58,7 +59,12 @@ export default function PublicProfile() {
       followers: followersResult.count ?? 0,
       following: followingResult.count ?? 0,
     });
-    setGists((postsResult.data ?? []) as PublicPost[]);
+    if (data.is_private && user?.id !== data.id && !followState.data) {
+      setGists([]);
+      setPrivateMessage("This account is private. Follow this account to see its Gists.");
+    } else {
+      setGists((postsResult.data ?? []) as PublicPost[]);
+    }
     setLoading(false);
   }
 
@@ -128,7 +134,9 @@ export default function PublicProfile() {
 
       <section className="feed">
         <h2>{counts.gists} Gists</h2>
-        {gists.length === 0 ? (
+        {privateMessage ? (
+          <div className="empty-state"><h3>Private account</h3><p>{privateMessage}</p></div>
+        ) : gists.length === 0 ? (
           <p>No Gists yet.</p>
         ) : (
           gists.map((post) => (
