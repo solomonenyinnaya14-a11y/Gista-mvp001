@@ -1,7 +1,7 @@
 "use client";
 
 import { Pause, Play } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 
 type VoiceNoteProps = {
   src: string;
@@ -43,7 +43,7 @@ export default function VoiceNote({ src, durationHint }: VoiceNoteProps) {
     }
   }
 
-  function seek(event: React.MouseEvent<HTMLDivElement>) {
+  function seek(event: MouseEvent<HTMLDivElement>) {
     const audio = audioRef.current;
     if (!audio || !duration) return;
     const rect = event.currentTarget.getBoundingClientRect();
