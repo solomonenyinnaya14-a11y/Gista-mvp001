@@ -4,14 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Mic, Square } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import VoiceNote from "@/components/VoiceNote";
 
 type Profile = { display_name: string | null; username: string | null };
 type RawProfile = Profile | Profile[] | null | undefined;
-type Reply = { id: string; body: string | null; content_type: string; media_url: string | null; created_at: string; author_id: string; profiles: Profile | null };
+type Reply = { id: string; body: string | null; content_type: string; media_url: string | null; voice_duration_seconds: number | null; created_at: string; author_id: string; profiles: Profile | null };
 type RawReply = Omit<Reply, "profiles"> & { profiles: RawProfile };
-type Response = { id: string; body: string | null; content_type: string; media_url: string | null; created_at: string; author_id: string; profiles: Profile | null; replies: Reply[] };
+type Response = { id: string; body: string | null; content_type: string; media_url: string | null; voice_duration_seconds: number | null; created_at: string; author_id: string; profiles: Profile | null; replies: Reply[] };
 type RawResponse = Omit<Response, "profiles" | "replies"> & { profiles: RawProfile; replies: RawReply[] };
-type Post = { id: string; author_id: string; body: string | null; content_type: string; media_url: string | null; category: string; status: string; created_at: string; profiles: Profile | null };
+type Post = { id: string; author_id: string; body: string | null; content_type: string; media_url: string | null; voice_duration_seconds: number | null; category: string; status: string; created_at: string; profiles: Profile | null };
 
 export default function GistPage() {
   const { id } = useParams<{ id: string }>();
@@ -54,8 +55,8 @@ export default function GistPage() {
 
   async function load(currentUserId: string | null = userId) {
     const [postResult, responseResult, likeResult, responseSaveResult] = await Promise.all([
-      supabase.from("posts").select("id,author_id,body,content_type,media_url,category,status,created_at,profiles(display_name,username)").eq("id", id).single(),
-      supabase.from("responses").select("id,body,content_type,media_url,created_at,author_id,profiles(display_name,username),replies(id,body,content_type,media_url,created_at,author_id,profiles(display_name,username))").eq("post_id", id).order("created_at", { ascending: true }),
+      supabase.from("posts").select("id,author_id,body,content_type,media_url,voice_duration_seconds,category,status,created_at,profiles(display_name,username)").eq("id", id).single(),
+      supabase.from("responses").select("id,body,content_type,media_url,voice_duration_seconds,created_at,author_id,profiles(display_name,username),replies(id,body,content_type,media_url,voice_duration_seconds,created_at,author_id,profiles(display_name,username))").eq("post_id", id).order("created_at", { ascending: true }),
       supabase.from("likes").select("post_id", { count: "exact", head: true }).eq("post_id", id),
       currentUserId ? supabase.from("response_saves").select("response_id").eq("user_id", currentUserId) : Promise.resolve({ data: [] as { response_id: string }[] }),
     ]);
@@ -293,7 +294,7 @@ export default function GistPage() {
           <article className="post" key={response.id}>
             <div className="post-head"><div className="avatar">{response.profiles?.display_name?.[0]?.toUpperCase() ?? "G"}</div><div className="identity"><strong>{response.profiles?.display_name ?? "Gista User"}</strong><span>@{response.profiles?.username ?? "user"} · {new Date(response.created_at).toLocaleString()}</span></div></div>
             {response.body && <p className="post-text">{response.body}</p>}
-            {response.content_type === "voice" && response.media_url && <audio controls src={response.media_url} />}
+            {response.content_type === "voice" && response.media_url && <VoiceNote src={response.media_url} durationHint={response.voice_duration_seconds} />}
             <button className="response-reply" onClick={() => setOpenReply(openReply === response.id ? null : response.id)}>Reply</button>
             {userId && <button className="response-reply" onClick={async () => { const reason = prompt("Why are you reporting this response?"); if (!reason) return; const result = await supabase.from("reports").insert({ reporter_id: userId, response_id: response.id, reason }); if (result.error) setError(result.error.message); else setError("Response report submitted."); }}>Report</button>}
             {userId && <button className="response-reply" onClick={async () => {
@@ -325,7 +326,7 @@ export default function GistPage() {
                 <button className="primary small" onClick={() => postReply(response)}>Post reply</button>
               </div>
             )}
-            {response.replies.length > 0 && <div className="replies">{response.replies.map((reply) => <div className="reply" key={reply.id}><strong>{reply.profiles?.display_name ?? "Gista User"}</strong><span> @{reply.profiles?.username ?? "user"}</span>{reply.body && <p>{reply.body}</p>}{reply.content_type === "voice" && reply.media_url && <audio controls src={reply.media_url} />}{userId && <button className="response-reply" onClick={async () => { const reason = prompt("Why are you reporting this reply?"); if (!reason) return; const result = await supabase.from("reports").insert({ reporter_id: userId, reply_id: reply.id, reason }); if (result.error) setError(result.error.message); else setError("Reply report submitted."); }}>Report</button>}{userId === reply.author_id && <button className="response-reply" onClick={async () => {
+            {response.replies.length > 0 && <div className="replies">{response.replies.map((reply) => <div className="reply" key={reply.id}><strong>{reply.profiles?.display_name ?? "Gista User"}</strong><span> @{reply.profiles?.username ?? "user"}</span>{reply.body && <p>{reply.body}</p>}{reply.content_type === "voice" && reply.media_url && <VoiceNote src={reply.media_url} durationHint={reply.voice_duration_seconds} />}{userId && <button className="response-reply" onClick={async () => { const reason = prompt("Why are you reporting this reply?"); if (!reason) return; const result = await supabase.from("reports").insert({ reporter_id: userId, reply_id: reply.id, reason }); if (result.error) setError(result.error.message); else setError("Reply report submitted."); }}>Report</button>}{userId === reply.author_id && <button className="response-reply" onClick={async () => {
                   if (!confirm("Delete this reply?")) return;
                   const result = await supabase.from("replies").delete().eq("id", reply.id).eq("author_id", userId);
                   if (result.error) setError(result.error.message);
