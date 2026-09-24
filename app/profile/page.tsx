@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Bookmark, Camera, Check, Heart, MessageCircle, Settings, Share2, UserRound } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -37,6 +38,7 @@ function safeUsername(value: string) {
 
 export default function ProfilePage() {
   const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [edit, setEdit] = useState(false);
   const [displayName, setDisplayName] = useState("");
@@ -57,7 +59,7 @@ export default function ProfilePage() {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      window.location.href = "/auth";
+      router.push("/auth");
       return;
     }
 
@@ -161,7 +163,7 @@ export default function ProfilePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setAvatarUploading(false);
-      window.location.href = "/auth";
+      router.push("/auth");
       return;
     }
 
@@ -216,7 +218,7 @@ export default function ProfilePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setSaving(false);
-      window.location.href = "/auth";
+      router.push("/auth");
       return;
     }
 
@@ -245,7 +247,7 @@ export default function ProfilePage() {
   async function toggleLike(gist: Gist) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      window.location.href = "/auth";
+      router.push("/auth");
       return;
     }
 
@@ -265,7 +267,7 @@ export default function ProfilePage() {
   async function toggleSave(gist: Gist) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      window.location.href = "/auth";
+      router.push("/auth");
       return;
     }
 
