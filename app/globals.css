@@ -46,3 +46,7 @@
 .profile-hero-with-cover{padding-top:0}
 .profile-hero-with-cover .profile-photo-wrap{margin-top:-52px;position:relative;z-index:2}
 @media(max-width:480px){.profile-cover{height:135px}.profile-hero-with-cover .profile-photo-wrap{margin-top:-48px}}
+
+.profile-cover-camera{position:absolute;right:12px;bottom:12px;z-index:2;display:inline-flex;align-items:center;gap:6px;padding:8px 11px;border-radius:999px;background:#fff;color:#5b21b6;font-size:12px;font-weight:800;box-shadow:0 4px 14px #00000018;cursor:pointer}
+.profile-cover-camera input{display:none}
+.profile-cover-camera svg{width:16px;height:16px}
