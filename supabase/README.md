@@ -21,3 +21,6 @@ profile-media storage bucket: public profile images (JPG/PNG/WebP, 5MB max), upl
 
 
 Gist lifecycle notifications: when a post status explicitly transitions to `active` or `trending`, a database trigger creates a `gist_active` or `gist_trending` notification for the Gist author. Unchanged status values do not create duplicate notifications. The lifecycle notification function is SECURITY DEFINER but EXECUTE is revoked from anon/authenticated/public; it is invoked only by the database trigger.
+
+
+Privacy enforcement: `profiles`, `posts`, `responses`, and `replies` use RLS so private-account content is visible to the owner and approved followers only. Authenticated-only routes include create, profile, settings, notifications, and saved content; middleware redirects unauthenticated users to `/auth`.
