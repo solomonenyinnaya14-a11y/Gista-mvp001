@@ -44,7 +44,7 @@ export default function SavedPage() {
       const responseIds = (responseSaveResult.data ?? []).map((item) => item.response_id);
 
       const [{ data: postRows, error: postError }, { data: responseRows, error: responseError }] = await Promise.all([
-        postIds.length ? supabase.from("posts").select("id,body,content_type,media_url,category,created_at,author_id").in("id", postIds) : Promise.resolve({ data: [], error: null }),
+        postIds.length ? supabase.from("posts").select("id,body,content_type,media_url,category,created_at,author_id").in("id", postIds) : Promise.resolve({ data: [] as never[], error: null }),
         responseIds.length ? supabase.from("responses").select("id,post_id,body,content_type,media_url,created_at,author_id").in("id", responseIds) : Promise.resolve({ data: [], error: null }),
       ]);
       if (postError || responseError || postSaveResult.error || responseSaveResult.error) {
