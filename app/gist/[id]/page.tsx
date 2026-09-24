@@ -11,7 +11,7 @@ type Reply = { id: string; body: string | null; content_type: string; media_url:
 type RawReply = Omit<Reply, "profiles"> & { profiles: RawProfile };
 type Response = { id: string; body: string | null; content_type: string; media_url: string | null; created_at: string; author_id: string; profiles: Profile | null; replies: Reply[] };
 type RawResponse = Omit<Response, "profiles" | "replies"> & { profiles: RawProfile; replies: RawReply[] };
-type Post = { id: string; author_id: string; body: string | null; category: string; status: string; created_at: string; profiles: Profile | null };
+type Post = { id: string; author_id: string; body: string | null; content_type: string; media_url: string | null; category: string; status: string; created_at: string; profiles: Profile | null };
 
 export default function GistPage() {
   const { id } = useParams<{ id: string }>();
@@ -45,7 +45,7 @@ export default function GistPage() {
 
   async function load() {
     const [postResult, responseResult, likeResult] = await Promise.all([
-      supabase.from("posts").select("id,author_id,body,category,status,created_at,profiles(display_name,username)").eq("id", id).single(),
+      supabase.from("posts").select("id,author_id,body,content_type,media_url,category,status,created_at,profiles(display_name,username)").eq("id", id).single(),
       supabase.from("responses").select("id,body,content_type,media_url,created_at,author_id,profiles(display_name,username),replies(id,body,content_type,media_url,created_at,author_id,profiles(display_name,username))").eq("post_id", id).order("created_at", { ascending: true }),
       supabase.from("likes").select("post_id", { count: "exact", head: true }).eq("post_id", id),
     ]);
