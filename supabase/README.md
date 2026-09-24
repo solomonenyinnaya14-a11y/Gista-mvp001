@@ -18,3 +18,6 @@ MVP content intentionally excludes video, DMs, reposts, mute, communities and mo
 Notification triggers currently create notifications for follows, likes, responses, replies, and @mentions. Mention notifications are generated from @username patterns in posts, responses, and replies. Reply notifications target the author of the response being replied to.
 
 profile-media storage bucket: public profile images (JPG/PNG/WebP, 5MB max), uploads/deletes restricted to the authenticated user's UUID folder.
+
+
+Gist lifecycle notifications: when a post status explicitly transitions to `active` or `trending`, a database trigger creates a `gist_active` or `gist_trending` notification for the Gist author. Unchanged status values do not create duplicate notifications. The lifecycle notification function is SECURITY DEFINER but EXECUTE is revoked from anon/authenticated/public; it is invoked only by the database trigger.
