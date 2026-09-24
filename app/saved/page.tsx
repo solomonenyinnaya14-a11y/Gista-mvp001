@@ -15,6 +15,10 @@ type SavedResponse = {
   media_url: string | null; created_at: string; author_id: string; profiles: Profile | null;
 };
 
+function profile(value: Profile | null): Profile | null {
+  return value;
+}
+
 export default function SavedPage() {
   const supabase = createClient();
   const [posts, setPosts] = useState<SavedPost[]>([]);
