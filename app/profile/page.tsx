@@ -1,0 +1,2 @@
+import Link from "next/link";
+export default function ProfilePage(){return <main className="profile-page"><header className="simple-header"><Link href="/">‹ Home</Link><strong>Profile</strong><button>⚙</button></header><section className="profile-card"><div className="profile-avatar">S</div><h1>Solomon</h1><p>@solomon</p><p className="bio">A place to talk, share and connect.</p><div className="profile-stats"><span><b>0</b> Gists</span><span><b>0</b> Followers</span><span><b>0</b> Following</span></div><button className="primary small">Edit profile</button></section></main>}
