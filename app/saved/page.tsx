@@ -140,7 +140,7 @@ export default function SavedPage() {
       const postById = new Map((postRows ?? []).map((item) => [item.id, item]));
       const orderedPosts = postIds
         .map((postId) => postById.get(postId))
-        .filter(Boolean)
+        .filter((post): post is NonNullable<typeof post> => Boolean(post))
         .map((post) => ({
           ...post,
           profiles: profilesById.get(post.author_id) ?? null,
@@ -155,7 +155,7 @@ export default function SavedPage() {
       const responseById = new Map((responseRows ?? []).map((item) => [item.id, item]));
       const orderedResponses = responseIds
         .map((responseId) => responseById.get(responseId))
-        .filter(Boolean)
+        .filter((response): response is NonNullable<typeof response> => Boolean(response))
         .map((response) => ({ ...response, profiles: profilesById.get(response.author_id) ?? null })) as SavedResponse[];
 
       if (cancelled) return;
@@ -250,7 +250,6 @@ export default function SavedPage() {
 
           {responses.map((response) => {
             const displayName = response.profiles?.display_name ?? "Gista User";
-            const profileHref = response.profiles?.username ? "/profile/" + response.profiles.username : "/profile";
             return (
               <Link className="post" key={"response-" + response.id} href={"/gist/" + response.post_id}>
                 <div className="post-head">
