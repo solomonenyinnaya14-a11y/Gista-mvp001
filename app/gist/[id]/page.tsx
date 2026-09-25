@@ -401,7 +401,7 @@ export default function GistPage() {
                     if (bucket && path) await supabase.storage.from(bucket).remove([path]);
                     await load();
                   }
-                }}>Delete</button>}</div>)}</div>}
+                }>Delete</button>}</div>)}</div>}
           </article>
         ))}
       </section>
