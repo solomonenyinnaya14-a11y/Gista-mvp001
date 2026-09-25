@@ -118,7 +118,7 @@ export default function SearchPage() {
         <input autoFocus value={q} onChange={(event) => setQ(event.target.value)} placeholder="Search Gists, people, categories…" />
       </div>
 
-      <div className="feed-tabs">
+      <div className="feed-tabs search-tabs">
         {["Gists", "People", "Categories"].map((item) => (
           <button type="button" key={item} className={tab === item ? "tab active" : "tab"} onClick={() => setTab(item)}>{item}</button>
         ))}
