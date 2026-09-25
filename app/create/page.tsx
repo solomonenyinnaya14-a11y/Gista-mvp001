@@ -120,7 +120,7 @@ export default function CreatePage() {
     const { error: insertError } = await supabase.from("posts").insert({
       author_id: user.id,
       content_type: mode,
-      body: mode === "text" ? text.trim() : null,
+      body: text.trim() || null,
       media_url,
       category,
       status: "growing",
@@ -158,6 +158,8 @@ export default function CreatePage() {
           <button type="button" className={mode === "photo" ? "active" : ""} onClick={() => setMode("photo")}><ImagePlus />Photo</button>
           <button type="button" className={mode === "voice" ? "active" : ""} onClick={() => { setMode("voice"); setAudio(null); setAudioUrl(""); }}><Mic />Voice</button>
         </div>
+
+        {mode !== "text" && <textarea value={text} onChange={(event) => setText(event.target.value)} maxLength={5000} placeholder="Add a caption or say something about your Gist (optional)…" aria-label="Optional text for this Gist" />}
 
         {mode === "text" && <textarea value={text} onChange={(event) => setText(event.target.value)} maxLength={5000} placeholder="Say something worth sharing…" />}
 
