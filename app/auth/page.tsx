@@ -1,17 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { authCallbackUrl } from "@/lib/auth-url";
 
 export default function AuthPage(){
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mode,setMode]=useState<"login"|"signup">("login");
   const [email,setEmail]=useState("");
   const [password,setPassword]=useState("");
-  const [message,setMessage]=useState("");
+  const [message,setMessage]=useState(() => {
+    const error = searchParams.get("error");
+    if (error === "verification_failed") return "Email verification failed or the link has expired. Please request a new verification email.";
+    if (error === "missing_verification_token") return "This verification link is incomplete. Please request a new verification email.";
+    return "";
+  });
   const [loading,setLoading]=useState(false);
 
   async function submit(e:React.FormEvent){
@@ -31,12 +36,11 @@ export default function AuthPage(){
         router.refresh();
       }
     } else {
-      const redirectTo = authCallbackUrl("/");
-      const result=await supabase.auth.signUp({
-        email,
-        password,
-        options:{emailRedirectTo:redirectTo},
-      });
+      // The production Site URL is used by Supabase for the confirmation email.
+      // The email template sends a token_hash to /auth/confirm, so verification
+      // works even when signup starts on localhost and the email is opened on
+      // another device.
+      const result=await supabase.auth.signUp({email,password});
 
       if(result.error){
         setMessage(result.error.message);
