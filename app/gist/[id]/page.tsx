@@ -17,11 +17,7 @@ function ProfileAvatar({ profile, fallbackAvatarUrl }: { profile: Profile | null
   const avatarUrl = profile?.avatar_url ?? fallbackAvatarUrl ?? null;
   return (
     <div className="avatar">
-      {avatarUrl ? (
-        <img src={avatarUrl} alt="" className="avatar-image" />
-      ) : (
-        profile?.display_name?.[0]?.toUpperCase() ?? "G"
-      )}
+      {avatarUrl ? <img src={avatarUrl} alt="" className="avatar-image" /> : profile?.display_name?.[0]?.toUpperCase() ?? "G"}
     </div>
   );
 }
@@ -60,10 +56,7 @@ export default function GistPage() {
   const replyTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (!voice) {
-      setVoicePreviewUrl(null);
-      return;
-    }
+    if (!voice) { setVoicePreviewUrl(null); return; }
     const url = URL.createObjectURL(voice);
     setVoicePreviewUrl(url);
     return () => URL.revokeObjectURL(url);
@@ -96,11 +89,7 @@ export default function GistPage() {
     const { data: profileRows, error: profileError } = uniqueAuthorIds.length
       ? await supabase.from("profiles").select("id,display_name,username,avatar_url").in("id", uniqueAuthorIds)
       : { data: [], error: null };
-    if (profileError) {
-      setError(profileError.message);
-      setLoading(false);
-      return;
-    }
+    if (profileError) { setError(profileError.message); setLoading(false); return; }
     const profilesById = new Map((profileRows ?? []).map((item) => [item.id, item as Profile]));
     setPost(rawPost ? { ...rawPost, profiles: profilesById.get(rawPost.author_id) ?? null } : null);
     setLikeCount(likeResult.count ?? 0);
@@ -148,14 +137,8 @@ export default function GistPage() {
       };
       mediaRecorder.start();
       setRecording(true);
-      timer.current = setInterval(() => {
-        elapsed += 1;
-        setSeconds(elapsed);
-        if (elapsed >= 60) stopVoice();
-      }, 1000);
-    } catch {
-      setError("Microphone access is required.");
-    }
+      timer.current = setInterval(() => { elapsed += 1; setSeconds(elapsed); if (elapsed >= 60) stopVoice(); }, 1000);
+    } catch { setError("Microphone access is required."); }
   }
 
   async function respond() {
@@ -173,26 +156,12 @@ export default function GistPage() {
       media_url = supabase.storage.from("gist-audio").getPublicUrl(path).data.publicUrl;
     }
 
-    const { error: insertError } = await supabase.from("responses").insert({
-      post_id: id,
-      author_id: user.id,
-      content_type: voice ? "voice" : "text",
-      body: voice ? null : text.trim(),
-      media_url,
-      voice_duration_seconds: voice ? seconds : null,
-    });
-
+    const { error: insertError } = await supabase.from("responses").insert({ post_id: id, author_id: user.id, content_type: voice ? "voice" : "text", body: voice ? null : text.trim(), media_url, voice_duration_seconds: voice ? seconds : null });
     if (insertError) {
-      if (media_url) {
-        const path = storagePath(media_url, "gist-audio");
-        if (path) await supabase.storage.from("gist-audio").remove([path]);
-      }
+      if (media_url) { const path = storagePath(media_url, "gist-audio"); if (path) await supabase.storage.from("gist-audio").remove([path]); }
       setError(insertError.message);
     } else {
-      setText("");
-      setVoice(null);
-      setSeconds(0);
-      await load();
+      setText(""); setVoice(null); setSeconds(0); await load();
     }
   }
 
@@ -219,15 +188,12 @@ export default function GistPage() {
       mediaRecorder.start();
       setReplyRecording(responseId);
       replyTimer.current = setInterval(() => { elapsed += 1; setReplySeconds((current) => ({ ...current, [responseId]: elapsed })); if (elapsed >= 60) stopReplyVoice(); }, 1000);
-    } catch {
-      setError("Microphone access is required.");
-    }
+    } catch { setError("Microphone access is required."); }
   }
 
   async function postReply(response: Response) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/auth"); return; }
-
     const body = (replyText[response.id] ?? "").trim();
     const voiceReply = replyVoice[response.id] ?? null;
     if (!body && !voiceReply) return;
@@ -240,56 +206,21 @@ export default function GistPage() {
       media_url = supabase.storage.from("gist-audio").getPublicUrl(path).data.publicUrl;
     }
 
-    const { error: insertError } = await supabase.from("replies").insert({
-      response_id: response.id,
-      author_id: user.id,
-      content_type: voiceReply ? "voice" : "text",
-      body: voiceReply ? null : body,
-      media_url,
-      voice_duration_seconds: voiceReply ? (replySeconds[response.id] ?? 0) : null,
-    });
-
+    const { error: insertError } = await supabase.from("replies").insert({ response_id: response.id, author_id: user.id, content_type: voiceReply ? "voice" : "text", body: voiceReply ? null : body, media_url, voice_duration_seconds: voiceReply ? (replySeconds[response.id] ?? 0) : null });
     if (insertError) setError(insertError.message);
-    else {
-      setReplyText((current) => ({ ...current, [response.id]: "" }));
-      setReplyVoice((current) => ({ ...current, [response.id]: null }));
-      setOpenReply(null);
-      await load();
-    }
+    else { setReplyText((current) => ({ ...current, [response.id]: "" })); setReplyVoice((current) => ({ ...current, [response.id]: null })); setOpenReply(null); await load(); }
   }
 
   async function deleteGist() {
     if (!userId || !post || userId !== post.author_id) return;
     if (!confirm("Delete this Gist? This cannot be undone.")) return;
-
     setError("");
     const result = await supabase.from("posts").delete().eq("id", id).eq("author_id", userId);
-    if (result.error) {
-      setError(result.error.message);
-      return;
-    }
-
+    if (result.error) { setError(result.error.message); return; }
     const bucket = post.content_type === "photo" ? "gist-media" : post.content_type === "voice" ? "gist-audio" : null;
     const path = bucket ? storagePath(post.media_url, bucket) : null;
     if (bucket && path) await supabase.storage.from(bucket).remove([path]);
-    setMenu(false);
-    router.push("/");
-  }
-
-  async function deleteReply(reply: Reply) {
-    if (!userId || userId !== reply.author_id) return;
-    if (!confirm("Delete this reply?")) return;
-
-    const result = await supabase.from("replies").delete().eq("id", reply.id).eq("author_id", userId);
-    if (result.error) {
-      setError(result.error.message);
-      return;
-    }
-
-    const bucket = reply.content_type === "photo" ? "gist-media" : reply.content_type === "voice" ? "gist-audio" : null;
-    const path = bucket ? storagePath(reply.media_url, bucket) : null;
-    if (bucket && path) await supabase.storage.from(bucket).remove([path]);
-    await load();
+    setMenu(false); router.push("/");
   }
 
   if (loading) return <main className="content"><p>Loading Gist…</p></main>;
@@ -311,52 +242,34 @@ export default function GistPage() {
           <div className="identity"><strong>{post.profiles?.display_name ?? "Gista User"}</strong><span>@{post.profiles?.username ?? "user"} · {new Date(post.created_at).toLocaleString()}</span></div>
           <span className="category">{post.category}</span>
         </div>
-        {menu && (
-          <div className="action-menu">
-            {userId === post.author_id ? (
-              <button className="danger" onClick={deleteGist}>Delete Gist</button>
-            ) : (
-              <>
-                <button onClick={async () => { const reason = prompt("Why are you reporting this Gist?"); if (!reason || !userId) return; const result = await supabase.from("reports").insert({ reporter_id: userId, post_id: id, reason }); if (result.error) setError(result.error.message); else { setMenu(false); setError("Report submitted."); } }}>Report Gist</button>
-                <button onClick={async () => {
-                  if (!userId) { router.push("/auth"); return; }
-                  const result = await supabase.from("blocks").insert({ blocker_id: userId, blocked_id: post.author_id });
-                  if (result.error) setError(result.error.message);
-                  else { setMenu(false); router.push("/"); }
-                }}>Block author</button>
-                <button onClick={async () => {
-                  if (!userId) { router.push("/auth"); return; }
-                  const result = await supabase.from("not_interested").insert({ user_id: userId, post_id: id });
-                  if (result.error && result.error.code !== "23505") setError(result.error.message);
-                  else { setMenu(false); router.push("/"); }
-                }}>Not Interested</button>
-              </>
-            )}
-          </div>
-        )}
+        {menu && <div className="action-menu">
+          {userId === post.author_id ? <button className="danger" onClick={deleteGist}>Delete Gist</button> : <>
+            <button onClick={async () => { const reason = prompt("Why are you reporting this Gist?"); if (!reason || !userId) return; const result = await supabase.from("reports").insert({ reporter_id: userId, post_id: id, reason }); if (result.error) setError(result.error.message); else { setMenu(false); setError("Report submitted."); } }}>Report Gist</button>
+            <button onClick={async () => { if (!userId) { router.push("/auth"); return; } const result = await supabase.from("blocks").insert({ blocker_id: userId, blocked_id: post.author_id }); if (result.error) setError(result.error.message); else { setMenu(false); router.push("/"); } }}>Block author</button>
+            <button onClick={async () => { if (!userId) { router.push("/auth"); return; } const result = await supabase.from("not_interested").insert({ user_id: userId, post_id: id }); if (result.error && result.error.code !== "23505") setError(result.error.message); else { setMenu(false); router.push("/"); } }}>Not Interested</button>
+          </>}
+        </div>}
         {post.content_type === "photo" && post.media_url && <img src={post.media_url} alt="Gist" className="gist-media" />}
         {post.content_type === "voice" && post.media_url && <VoiceNote src={post.media_url} durationHint={post.voice_duration_seconds} />}
         {post.body && <p className="post-text">{post.body}</p>}
         <div className="gist-meta"><span>❤️ {likeCount} Likes</span><span>💬 {responses.length} Responses</span><button type="button" onClick={() => setShowDna(true)}>Gist DNA</button></div>
       </article>
 
-      {showDna && (
-        <div className="modal-backdrop" onClick={() => setShowDna(false)}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
-            <div className="modal-header"><div><h2>Gist DNA</h2><p>Activity and participation in this Gist.</p></div><button onClick={() => setShowDna(false)}>×</button></div>
-            <div className="dna-grid">
-              <div><strong>{post.status === "trending" ? "🔥 Trending" : post.status === "active" ? "🔵 Active" : "🟢 Growing"}</strong><span>Status</span></div>
-              <div><strong>{participants}</strong><span>Participants</span></div>
-              <div><strong>{responses.length}</strong><span>Responses</span></div>
-              <div><strong>{growth}/hr</strong><span>Response growth</span></div>
-              <div><strong>{voiceResponses}</strong><span>Voice responses</span></div>
-              <div><strong>{textResponses}</strong><span>Text responses</span></div>
-              <div><strong>{Math.round((voiceResponses / Math.max(1, responses.length)) * 100)}%</strong><span>Voice mix</span></div>
-              <div><strong>{Math.round((textResponses / Math.max(1, responses.length)) * 100)}%</strong><span>Text mix</span></div>
-            </div>
+      {showDna && <div className="modal-backdrop" onClick={() => setShowDna(false)}>
+        <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-header"><div><h2>Gist DNA</h2><p>Activity and participation in this Gist.</p></div><button onClick={() => setShowDna(false)}>×</button></div>
+          <div className="dna-grid">
+            <div><strong>{post.status === "trending" ? "🔥 Trending" : post.status === "active" ? "🔵 Active" : "🟢 Growing"}</strong><span>Status</span></div>
+            <div><strong>{participants}</strong><span>Participants</span></div>
+            <div><strong>{responses.length}</strong><span>Responses</span></div>
+            <div><strong>{growth}/hr</strong><span>Response growth</span></div>
+            <div><strong>{voiceResponses}</strong><span>Voice responses</span></div>
+            <div><strong>{textResponses}</strong><span>Text responses</span></div>
+            <div><strong>{Math.round((voiceResponses / Math.max(1, responses.length)) * 100)}%</strong><span>Voice mix</span></div>
+            <div><strong>{Math.round((textResponses / Math.max(1, responses.length)) * 100)}%</strong><span>Text mix</span></div>
           </div>
         </div>
-      )}
+      </div>}
 
       <section className="create-card">
         <h3>Join the Gist</h3>
@@ -377,37 +290,23 @@ export default function GistPage() {
             {response.content_type === "voice" && response.media_url && <VoiceNote src={response.media_url} durationHint={response.voice_duration_seconds} />}
             <button className="response-reply" onClick={() => setOpenReply(openReply === response.id ? null : response.id)}>Reply</button>
             {userId && <button className="response-reply" onClick={async () => { const reason = prompt("Why are you reporting this response?"); if (!reason) return; const result = await supabase.from("reports").insert({ reporter_id: userId, response_id: response.id, reason }); if (result.error) setError(result.error.message); else setError("Response report submitted."); }}>Report</button>}
-            {userId && <button className="response-reply" onClick={async () => {
-              const saved = savedResponses.has(response.id);
-              const result = saved
-                ? await supabase.from("response_saves").delete().eq("user_id", userId).eq("response_id", response.id)
-                : await supabase.from("response_saves").insert({ user_id: userId, response_id: response.id });
-              if (result.error) setError(result.error.message);
-              else setSavedResponses((current) => {
-                const next = new Set(current);
-                if (saved) next.delete(response.id); else next.add(response.id);
-                return next;
-              });
-            }}>{savedResponses.has(response.id) ? "Unsave" : "Save"}</button>}
-            {userId === response.author_id && <button className="response-reply" onClick={async () => {
-              if (!confirm("Delete this response?")) return;
-              const result = await supabase.from("responses").delete().eq("id", response.id).eq("author_id", userId);
-              if (result.error) setError(result.error.message);
-              else {
-                const bucket = response.content_type === "photo" ? "gist-media" : response.content_type === "voice" ? "gist-audio" : null;
-                const path = bucket ? storagePath(response.media_url, bucket) : null;
-                if (bucket && path) await supabase.storage.from(bucket).remove([path]);
-                await load();
-              }
-            }}>Delete</button>}
-            {openReply === response.id && (
-              <div className="reply-box">
-                <textarea value={replyText[response.id] ?? ""} onChange={(event) => setReplyText((current) => ({ ...current, [response.id]: event.target.value }))} placeholder="Write a reply…" />
-                {replyRecording === response.id ? <button type="button" onClick={stopReplyVoice}>Stop voice ({replySeconds[response.id] ?? 0}s / 60s)</button> : <button type="button" onClick={() => startReplyVoice(response.id)}>Voice reply</button>}
-                <button className="primary small" onClick={() => postReply(response)}>Post reply</button>
+            {userId && <button className="response-reply" onClick={async () => { const saved = savedResponses.has(response.id); const result = saved ? await supabase.from("response_saves").delete().eq("user_id", userId).eq("response_id", response.id) : await supabase.from("response_saves").insert({ user_id: userId, response_id: response.id }); if (result.error) setError(result.error.message); else setSavedResponses((current) => { const next = new Set(current); if (saved) next.delete(response.id); else next.add(response.id); return next; }); }}>{savedResponses.has(response.id) ? "Unsave" : "Save"}</button>}
+            {userId === response.author_id && <button className="response-reply" onClick={async () => { if (!confirm("Delete this response?")) return; const result = await supabase.from("responses").delete().eq("id", response.id).eq("author_id", userId); if (result.error) setError(result.error.message); else { const bucket = response.content_type === "photo" ? "gist-media" : response.content_type === "voice" ? "gist-audio" : null; const path = bucket ? storagePath(response.media_url, bucket) : null; if (bucket && path) await supabase.storage.from(bucket).remove([path]); await load(); } }}>Delete</button>}
+            {openReply === response.id && <div className="reply-box">
+              <textarea value={replyText[response.id] ?? ""} onChange={(event) => setReplyText((current) => ({ ...current, [response.id]: event.target.value }))} placeholder="Write a reply…" />
+              {replyRecording === response.id ? <button type="button" onClick={stopReplyVoice}>Stop voice ({replySeconds[response.id] ?? 0}s / 60s)</button> : <button type="button" onClick={() => startReplyVoice(response.id)}>Voice reply</button>}
+              <button className="primary small" onClick={() => postReply(response)}>Post reply</button>
+            </div>}
+            {response.replies.length > 0 && <div className="replies">{response.replies.map((reply) => <div className="reply" key={reply.id}>
+              <ProfileAvatar profile={reply.profiles} fallbackAvatarUrl={reply.author_id === post.author_id ? post.profiles?.avatar_url : null} />
+              <div className="reply-content">
+                <strong>{reply.profiles?.display_name ?? "Gista User"}</strong><span> @{reply.profiles?.username ?? "user"}</span>
+                {reply.content_type === "photo" && reply.media_url && <img src={reply.media_url} alt="Reply" className="response-media" />}
+                {reply.body && <p>{reply.body}</p>}
+                {reply.content_type === "voice" && reply.media_url && <VoiceNote src={reply.media_url} durationHint={reply.voice_duration_seconds} />}
+                {userId && <button className="response-reply" onClick={async () => { const reason = prompt("Why are you reporting this reply?"); if (!reason) return; const result = await supabase.from("reports").insert({ reporter_id: userId, reply_id: reply.id, reason }); if (result.error) setError(result.error.message); else setError("Reply report submitted."); }}>Report</button>}
               </div>
-            )}
-            {response.replies.length > 0 && <div className="replies">{response.replies.map((reply) => <div className="reply" key={reply.id}><ProfileAvatar profile={reply.profiles} fallbackAvatarUrl={reply.author_id === post.author_id ? post.profiles?.avatar_url : null} /><div className="reply-content"><strong>{reply.profiles?.display_name ?? "Gista User"}</strong><span> @{reply.profiles?.username ?? "user"}</span>{reply.content_type === "photo" && reply.media_url && <img src={reply.media_url} alt="Reply" className="response-media" />}{reply.body && <p>{reply.body}</p>}{reply.content_type === "voice" && reply.media_url && <VoiceNote src={reply.media_url} durationHint={reply.voice_duration_seconds} />}{userId && <button className="response-reply" onClick={async () => { const reason = prompt("Why are you reporting this reply?"); if (!reason) return; const result = await supabase.from("reports").insert({ reporter_id: userId, reply_id: reply.id, reason }); if (result.error) setError(result.error.message); else setError("Reply report submitted."); }}>Report</button>}{userId === reply.author_id && <button className="response-reply" onClick={() => void deleteReply(reply)}>Delete</button>}</div>)}</div>}
+            </div>)}</div>}
           </article>
         ))}
       </section>
