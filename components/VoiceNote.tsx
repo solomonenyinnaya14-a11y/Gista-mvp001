@@ -62,12 +62,12 @@ export default function VoiceNote({ src, durationHint }: VoiceNoteProps) {
         {playing ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
       </button>
       <div className="voice-track-wrap">
-        <div className="voice-track" onClick={seek} role="slider" aria-label="Voice note progress" aria-valuemin={0} aria-valuemax={shownDuration} aria-valuenow={Math.round(current)}>
+        <div className={playing ? "voice-track is-playing" : "voice-track"} onClick={seek} role="slider" aria-label="Voice note progress" aria-valuemin={0} aria-valuemax={shownDuration} aria-valuenow={Math.round(current)}>
           {bars.map((height, index) => (
             <span
               key={index}
               className={index / bars.length <= progress ? "voice-bar played" : "voice-bar"}
-              style={{ height: height + "%" }}
+              style={{ height: height + "%", animationDelay: playing ? `${(index % 8) * 80}ms` : undefined }}
             />
           ))}
         </div>
