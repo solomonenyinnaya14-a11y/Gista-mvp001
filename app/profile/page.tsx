@@ -93,13 +93,12 @@ export default function ProfilePage() {
       return;
     }
 
-    const [gistsResult, followersResult, followingResult, ownGistsResult] = await Promise.all([
-      supabase.from("posts").select("id", { count: "exact", head: true }).eq("author_id", user.id),
-      supabase.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", user.id),
-      supabase.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", user.id),
+    const [statsResult, ownGistsResult] = await Promise.all([
+      supabase.rpc("get_profile_stats", { target_profile_id: user.id }),
       supabase.from("posts").select("id,content_type,body,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", user.id).order("created_at", { ascending: false }).limit(30),
     ]);
 
+    const profileStats = statsResult.data?.[0] as { gists?: number; followers?: number; following?: number } | undefined;
     const ownGists = (ownGistsResult.data ?? []) as Array<Omit<Gist, "likes" | "responses" | "liked" | "saved">>;
     const postIds = ownGists.map((gist) => gist.id);
 
@@ -131,9 +130,9 @@ export default function ProfilePage() {
     setUsername(data.username ?? "");
     setBio(data.bio ?? "");
     setStats({
-      gists: gistsResult.count ?? 0,
-      followers: followersResult.count ?? 0,
-      following: followingResult.count ?? 0,
+      gists: Number(profileStats?.gists ?? 0),
+      followers: Number(profileStats?.followers ?? 0),
+      following: Number(profileStats?.following ?? 0),
     });
     setGists(ownGists.map((gist) => ({
       ...gist,
@@ -189,7 +188,7 @@ export default function ProfilePage() {
       .from("profiles")
       .update({ avatar_url: publicUrl })
       .eq("id", user.id)
-      .select("id,username,display_name,bio,avatar_url")
+      .select("id,username,display_name,bio,avatar_url,cover_url")
       .single();
 
     if (updateError || !updated) {
@@ -350,6 +349,7 @@ export default function ProfilePage() {
   }
 
   const initials = profile?.display_name?.trim()?.[0]?.toUpperCase() ?? "G";
+  const profileUsername = profile?.username ?? "username";
 
   if (loading) return <main className="profile-page"><div className="profile-loading">Loading your profile…</div></main>;
 
@@ -402,13 +402,13 @@ export default function ProfilePage() {
           </div>
 
           <h1>{profile?.display_name || "Gista User"}</h1>
-          <p className="profile-username">@{profile?.username || "username"}</p>
+          <p className="profile-username">@{profileUsername}</p>
           {profile?.bio && <p className="profile-bio">{profile.bio}</p>}
 
           <div className="profile-stats">
-            <a href="#my-gists"><strong>{stats.gists}</strong><span>Gists</span></a>
-            <span><strong>{stats.followers}</strong><span>Followers</span></span>
-            <span><strong>{stats.following}</strong><span>Following</span></span>
+            <Link href={"/profile/" + profileUsername + "#my-gists"}><strong>{stats.gists}</strong><span>Gists</span></Link>
+            <Link href={"/profile/" + profileUsername + "/followers"}><strong>{stats.followers}</strong><span>Followers</span></Link>
+            <Link href={"/profile/" + profileUsername + "/following"}><strong>{stats.following}</strong><span>Following</span></Link>
           </div>
 
           <div className="profile-actions">
@@ -418,7 +418,7 @@ export default function ProfilePage() {
             <Link className="profile-secondary" href="/saved">Saved</Link>
           </div>
 
-          {(avatarUploading || message || error) && (
+          {(avatarUploading || coverUploading || message || error) && (
             <div className={error ? "profile-feedback error" : "profile-feedback"}>
               {avatarUploading ? "Uploading profile photo…" : coverUploading ? "Uploading cover photo…" : message || error}
             </div>
