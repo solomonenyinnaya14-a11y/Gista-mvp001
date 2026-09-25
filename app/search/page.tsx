@@ -167,7 +167,7 @@ export default function SearchPage() {
               </div>
               {post.content_type === "photo" && post.media_url && <Link href={`/gist/${post.id}`}><img src={post.media_url} alt="Gist" loading="lazy" decoding="async" style={{ width: "100%", borderRadius: 16 }} /></Link>}
               {post.content_type === "voice" && post.media_url && <VoiceNote src={post.media_url} durationHint={post.voice_duration_seconds} />}
-              {post.body && <Link href={`/gist/${post.id}`} className="post-text" style={{ display: "block", color: "#6d28d9", textDecoration: "none" }}>{post.body}</Link>}
+              {post.body && <Link href={`/gist/${post.id}`} className="post-text" style={{ display: "block", color: "#17151c", textDecoration: "none" }}>{post.body}</Link>}
             </article>
           ))}
         </div>
