@@ -1,12 +1,26 @@
-import {createServerClient} from "@supabase/ssr";
-import {NextResponse} from "next/server";
-export async function GET(request:Request){
- const url=new URL(request.url); const code=url.searchParams.get("code"); const next=url.searchParams.get("next")??"/";
- if(code){
-  const response=NextResponse.redirect(new URL(next,url.origin));
-  const supabase=createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!,process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,{cookies:{getAll:()=>[],setAll:()=>{}}});
-  await supabase.auth.exchangeCodeForSession(code);
-  return response;
- }
- return NextResponse.redirect(new URL("/auth",url.origin));
+import { NextResponse } from "next/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+
+function safeNextPath(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
+  return value;
+}
+
+export async function GET(request: Request) {
+  const url = new URL(request.url);
+  const code = url.searchParams.get("code");
+  const next = safeNextPath(url.searchParams.get("next"));
+
+  if (!code) {
+    return NextResponse.redirect(new URL("/auth", url.origin));
+  }
+
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.auth.exchangeCodeForSession(code);
+
+  if (error) {
+    return NextResponse.redirect(new URL("/auth?error=verification_failed", url.origin));
+  }
+
+  return NextResponse.redirect(new URL(next, url.origin));
 }
