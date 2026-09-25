@@ -27,9 +27,13 @@ type Post = {
   profiles: Profile | null;
   likes: number;
   responses: number;
+  shares: number;
+  saves: number;
   liked: boolean;
   saved: boolean;
 };
+
+type EngagementCount = { post_id: string; share_count: number | string; save_count: number | string };
 
 export default function HomePage() {
   const supabase = useMemo(() => createClient(), []);
@@ -89,9 +93,6 @@ export default function HomePage() {
       .order("created_at", { ascending: false })
       .limit(tab === "Following" ? 50 : 30);
 
-    // Start the first feed query and all user filters together. The previous
-    // implementation waited for the filters before requesting posts, creating
-    // an avoidable network waterfall on every home load.
     const [postsResult, blockedResult, hiddenResult, followsResult] = await Promise.all([
       query,
       currentUser
@@ -128,9 +129,7 @@ export default function HomePage() {
       return true;
     });
 
-    if (tab === "Trending") {
-      data = data.filter((post) => post.status === "trending");
-    }
+    if (tab === "Trending") data = data.filter((post) => post.status === "trending");
 
     if (!data.length) {
       setPosts([]);
@@ -141,15 +140,16 @@ export default function HomePage() {
     const postIds = data.map((post) => post.id);
     const authorIds = [...new Set(data.map((post) => post.author_id))];
 
-    // Counts, user state, and author profiles are independent reads. Fetch
-    // them in one parallel batch instead of serial requests.
-    const [likesResult, responsesResult, savesResult, profileResult] = await Promise.all([
+    const [likesResult, responsesResult, savesResult, profileResult, engagementResult] = await Promise.all([
       supabase.from("likes").select("post_id,user_id").in("post_id", postIds),
       supabase.from("responses").select("post_id").in("post_id", postIds),
       currentUser
         ? supabase.from("saves").select("post_id").eq("user_id", currentUser.id).in("post_id", postIds)
         : Promise.resolve({ data: [] as { post_id: string }[], error: null }),
       supabase.from("profiles").select("id,display_name,username,avatar_url").in("id", authorIds),
+      currentUser
+        ? supabase.rpc("get_post_engagement_counts", { post_ids: postIds })
+        : Promise.resolve({ data: [] as EngagementCount[], error: null }),
     ]);
 
     if (profileResult.error) {
@@ -158,15 +158,27 @@ export default function HomePage() {
       setLoading(false);
       return;
     }
+    if (engagementResult.error) {
+      setFeedError(engagementResult.error.message);
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
 
     const likeCounts = Object.fromEntries(postIds.map((postId) => [postId, 0]));
     const responseCounts = Object.fromEntries(postIds.map((postId) => [postId, 0]));
+    const shareCounts = Object.fromEntries(postIds.map((postId) => [postId, 0]));
+    const saveCounts = Object.fromEntries(postIds.map((postId) => [postId, 0]));
 
     (likesResult.data ?? []).forEach((item: { post_id: string }) => {
       likeCounts[item.post_id] = (likeCounts[item.post_id] ?? 0) + 1;
     });
     (responsesResult.data ?? []).forEach((item: { post_id: string }) => {
       responseCounts[item.post_id] = (responseCounts[item.post_id] ?? 0) + 1;
+    });
+    (engagementResult.data ?? []).forEach((item: EngagementCount) => {
+      shareCounts[item.post_id] = Number(item.share_count) || 0;
+      saveCounts[item.post_id] = Number(item.save_count) || 0;
     });
 
     const liked = new Set(
@@ -182,6 +194,8 @@ export default function HomePage() {
       profiles: profilesById.get(post.author_id) ?? null,
       likes: likeCounts[post.id] ?? 0,
       responses: responseCounts[post.id] ?? 0,
+      shares: shareCounts[post.id] ?? 0,
+      saves: saveCounts[post.id] ?? 0,
       liked: liked.has(post.id),
       saved: saved.has(post.id),
     })));
@@ -275,10 +289,35 @@ export default function HomePage() {
       : await supabase.from("saves").insert({ post_id: post.id, user_id: user.id });
 
     if (!result.error) {
-      setPosts((current) => current.map((item) => item.id === post.id ? { ...item, saved: !item.saved } : item));
+      setPosts((current) => current.map((item) => item.id === post.id
+        ? { ...item, saved: !item.saved, saves: Math.max(0, item.saves + (item.saved ? -1 : 1)) }
+        : item));
     }
 
     setBusy(null);
+  }
+
+  async function sharePost(post: Post) {
+    if (!user) {
+      router.push("/auth");
+      return;
+    }
+
+    const url = window.location.origin + "/gist/" + post.id;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Gista", text: post.body ?? "Join this Gist on Gista", url });
+      } else {
+        await navigator.clipboard.writeText(url);
+      }
+
+      const result = await supabase.from("shares").insert({ post_id: post.id, user_id: user.id });
+      if (!result.error) {
+        setPosts((current) => current.map((item) => item.id === post.id ? { ...item, shares: item.shares + 1 } : item));
+      }
+    } catch {
+      // A cancelled share sheet should not create a share event.
+    }
   }
 
   const displayName = profile?.display_name ?? user?.email?.split("@")[0] ?? "Gista User";
@@ -308,10 +347,7 @@ export default function HomePage() {
 
         <div className="feed">
           {loading ? (
-            <div className="feed-skeleton" aria-label="Loading Gists">
-              <div className="skeleton-post" />
-              <div className="skeleton-post" />
-            </div>
+            <div className="feed-skeleton" aria-label="Loading Gists"><div className="skeleton-post" /><div className="skeleton-post" /></div>
           ) : feedError ? (
             <div className="empty-state"><h3>We couldn&apos;t load the Gists</h3><p>{feedError}</p><button className="primary small" onClick={() => void loadPosts(user)}>Try again</button></div>
           ) : posts.length === 0 ? (
@@ -332,14 +368,7 @@ export default function HomePage() {
               </div>
 
               {post.content_type === "photo" && post.media_url && (
-                <img
-                  src={post.media_url}
-                  alt="Gist photo"
-                  loading={index === 0 ? "eager" : "lazy"}
-                  decoding="async"
-                  fetchPriority={index === 0 ? "high" : "auto"}
-                  style={{ width: "100%", borderRadius: 16, marginTop: 10 }}
-                />
+                <img src={post.media_url} alt="Gist photo" loading={index === 0 ? "eager" : "lazy"} decoding="async" fetchPriority={index === 0 ? "high" : "auto"} style={{ width: "100%", borderRadius: 16, marginTop: 10 }} />
               )}
               {post.content_type === "voice" && post.media_url && <VoiceNote src={post.media_url} durationHint={post.voice_duration_seconds} />}
               {post.body && <p className="post-text">{post.body}</p>}
@@ -355,13 +384,9 @@ export default function HomePage() {
                   <Heart size={18} fill={post.liked ? "currentColor" : "none"} /> {post.likes}
                 </button>
                 <Link className="feed-action-link" href={"/gist/" + post.id}><MessageCircle size={18} /> {post.responses}</Link>
-                <button type="button" onClick={() => {
-                  const url = window.location.origin + "/gist/" + post.id;
-                  if (navigator.share) void navigator.share({ title: "Gista", text: post.body ?? "Join this Gist on Gista", url });
-                  else void navigator.clipboard.writeText(url);
-                }} aria-label="Share Gist"><Share2 size={18} /></button>
-                <button type="button" onClick={() => void toggleSave(post)} disabled={busy === post.id + "s"} aria-label="Save Gist">
-                  <Bookmark size={18} fill={post.saved ? "currentColor" : "none"} />
+                <button type="button" onClick={() => void sharePost(post)} aria-label="Share Gist"><Share2 size={18} /> {post.shares}</button>
+                <button type="button" className={post.saved ? "saved-action" : ""} onClick={() => void toggleSave(post)} disabled={busy === post.id + "s"} aria-label="Save Gist">
+                  <Bookmark size={18} fill={post.saved ? "currentColor" : "none"} /> {post.saves}
                 </button>
               </div>
             </article>
