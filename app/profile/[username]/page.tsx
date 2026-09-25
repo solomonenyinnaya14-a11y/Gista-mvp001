@@ -51,7 +51,7 @@ export default function PublicProfile() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("id,username,display_name,bio,avatar_url,cover_url,is_private")
+      .select("id,username,display_name,bio,avatar_url,cover_url,is_private,following_private")
       .eq("username", username)
       .single();
 
@@ -61,25 +61,26 @@ export default function PublicProfile() {
       return;
     }
 
-    const [followState, gistsResult, followersResult, followingResult, postsResult] = await Promise.all([
+    const [followState, statsResult, postsResult] = await Promise.all([
       user
         ? supabase.from("follows").select("follower_id").eq("follower_id", user.id).eq("following_id", data.id).maybeSingle()
         : Promise.resolve({ data: null }),
-      supabase.from("posts").select("id", { count: "exact", head: true }).eq("author_id", data.id),
-      supabase.from("follows").select("follower_id", { count: "exact", head: true }).eq("following_id", data.id),
-      supabase.from("follows").select("following_id", { count: "exact", head: true }).eq("follower_id", data.id),
+      supabase.rpc("get_profile_stats", { target_profile_id: data.id }),
       supabase.from("posts").select("id,body,content_type,media_url,category,created_at,voice_duration_seconds").eq("author_id", data.id).order("created_at", { ascending: false }).limit(30),
     ]);
 
+    const profileStats = statsResult.data?.[0] as { gists?: number; followers?: number; following?: number } | undefined;
+    const isFollowing = !!followState.data;
+
     setProfile(data as Profile);
-    setFollowing(!!followState.data);
+    setFollowing(isFollowing);
     setCounts({
-      gists: gistsResult.count ?? 0,
-      followers: followersResult.count ?? 0,
-      following: followingResult.count ?? 0,
+      gists: Number(profileStats?.gists ?? 0),
+      followers: Number(profileStats?.followers ?? 0),
+      following: Number(profileStats?.following ?? 0),
     });
 
-    if (data.is_private && user?.id !== data.id && !followState.data) {
+    if (data.is_private && user?.id !== data.id && !isFollowing) {
       setGists([]);
       setPrivateMessage("This account is private. Follow this account to see its Gists.");
       setLoading(false);
@@ -217,15 +218,15 @@ export default function PublicProfile() {
         {profile.bio && <p className="bio">{profile.bio}</p>}
 
         <div className="profile-stats">
-          <span><b>{counts.gists}</b> Gists</span>
-          <span><b>{counts.followers}</b> Followers</span>
-          <span><b>{counts.following}</b> Following</span>
+          <Link href={"/profile/" + profile.username + "#gists"}><b>{counts.gists}</b><span>Gists</span></Link>
+          <Link href={"/profile/" + profile.username + "/followers"}><b>{counts.followers}</b><span>Followers</span></Link>
+          <Link href={"/profile/" + profile.username + "/following"}><b>{counts.following}</b><span>Following</span></Link>
         </div>
 
         {me?.id !== profile.id && <button className="primary small" type="button" onClick={() => void toggleFollow()}>{following ? "Unfollow" : "Follow"}</button>}
       </section>
 
-      <section className="feed">
+      <section className="feed" id="gists">
         <h2>{counts.gists} Gists</h2>
         {privateMessage ? (
           <div className="empty-state"><h3>Private account</h3><p>{privateMessage}</p></div>
