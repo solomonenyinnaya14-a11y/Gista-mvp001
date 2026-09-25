@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { Search as SearchIcon, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import VoiceNote from "@/components/VoiceNote";
 
 const categories = ["Music", "Movies / Entertainment", "Art", "Banter", "Fun", "Gossip", "Sports", "Relationships", "Business", "Technology", "Education", "Lifestyle", "Society", "News & Current Events", "Opinions", "Stories"];
 
 type Person = { id: string; username: string | null; display_name: string | null; bio: string | null; avatar_url: string | null };
-type Gist = { id: string; body: string | null; content_type: string; media_url: string | null; category: string; created_at: string; author_id: string; profile: Person | null };
+type Gist = { id: string; body: string | null; content_type: string; media_url: string | null; category: string; created_at: string; author_id: string; voice_duration_seconds: number | null; profile: Person | null };
 
 export default function SearchPage() {
   const supabase = useMemo(() => createClient(), []);
@@ -59,7 +60,7 @@ export default function SearchPage() {
       // fail with PostgREST's ambiguous relationship error after schema changes.
       const { data: postData, error: gistsError } = await supabase
         .from("posts")
-        .select("id,body,content_type,media_url,category,created_at,author_id")
+        .select("id,body,content_type,media_url,category,created_at,author_id,voice_duration_seconds")
         .or(`body.ilike.${pattern},category.ilike.${pattern}`)
         .order("created_at", { ascending: false })
         .limit(30);
@@ -156,18 +157,18 @@ export default function SearchPage() {
           {gists.length === 0 ? (
             <div className="search-empty">{q ? "No Gists found for this search." : "Search for Gists, people or categories above."}</div>
           ) : gists.map((post) => (
-            <Link className="post" key={post.id} href={`/gist/${post.id}`}>
+            <article className="post" key={post.id}>
               <div className="post-head">
-                <div className="avatar">
+                <Link href={post.profile?.username ? `/profile/${post.profile.username}` : "/profile"} className="avatar" aria-label="Open profile">
                   {post.profile?.avatar_url ? <img src={post.profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : (post.profile?.display_name?.[0]?.toUpperCase() ?? "G")}
-                </div>
-                <div className="identity"><strong>{post.profile?.display_name ?? "Gista User"}</strong><span>@{post.profile?.username ?? "user"} · {new Date(post.created_at).toLocaleString()}</span></div>
+                </Link>
+                <div className="identity"><Link href={post.profile?.username ? `/profile/${post.profile.username}` : "/profile"}><strong>{post.profile?.display_name ?? "Gista User"}</strong></Link><span>@{post.profile?.username ?? "user"} · {new Date(post.created_at).toLocaleString()}</span></div>
                 <span className="category">{post.category}</span>
               </div>
-              {post.content_type === "photo" && post.media_url && <img src={post.media_url} alt="Gist" loading="lazy" decoding="async" style={{ width: "100%", borderRadius: 16 }} />}
-              {post.content_type === "voice" && post.media_url && <audio controls src={post.media_url} />}
-              {post.body && <p className="post-text">{post.body}</p>}
-            </Link>
+              {post.content_type === "photo" && post.media_url && <Link href={`/gist/${post.id}`}><img src={post.media_url} alt="Gist" loading="lazy" decoding="async" style={{ width: "100%", borderRadius: 16 }} /></Link>}
+              {post.content_type === "voice" && post.media_url && <VoiceNote src={post.media_url} durationHint={post.voice_duration_seconds} />}
+              {post.body && <Link href={`/gist/${post.id}`} className="post-text" style={{ display: "block", color: "#6d28d9", textDecoration: "none" }}>{post.body}</Link>}
+            </article>
           ))}
         </div>
       )}
