@@ -276,6 +276,22 @@ export default function GistPage() {
     router.push("/");
   }
 
+  async function deleteReply(reply: Reply) {
+    if (!userId || userId !== reply.author_id) return;
+    if (!confirm("Delete this reply?")) return;
+
+    const result = await supabase.from("replies").delete().eq("id", reply.id).eq("author_id", userId);
+    if (result.error) {
+      setError(result.error.message);
+      return;
+    }
+
+    const bucket = reply.content_type === "photo" ? "gist-media" : reply.content_type === "voice" ? "gist-audio" : null;
+    const path = bucket ? storagePath(reply.media_url, bucket) : null;
+    if (bucket && path) await supabase.storage.from(bucket).remove([path]);
+    await load();
+  }
+
   if (loading) return <main className="content"><p>Loading Gist…</p></main>;
   if (!post) return <main className="content"><p>Gist not found.</p></main>;
 
@@ -391,17 +407,7 @@ export default function GistPage() {
                 <button className="primary small" onClick={() => postReply(response)}>Post reply</button>
               </div>
             )}
-            {response.replies.length > 0 && <div className="replies">{response.replies.map((reply) => <div className="reply" key={reply.id}><ProfileAvatar profile={reply.profiles} fallbackAvatarUrl={reply.author_id === post.author_id ? post.profiles?.avatar_url : null} /><div className="reply-content"><strong>{reply.profiles?.display_name ?? "Gista User"}</strong><span> @{reply.profiles?.username ?? "user"}</span>{reply.content_type === "photo" && reply.media_url && <img src={reply.media_url} alt="Reply" className="response-media" />}{reply.body && <p>{reply.body}</p>}{reply.content_type === "voice" && reply.media_url && <VoiceNote src={reply.media_url} durationHint={reply.voice_duration_seconds} />}{userId && <button className="response-reply" onClick={async () => { const reason = prompt("Why are you reporting this reply?"); if (!reason) return; const result = await supabase.from("reports").insert({ reporter_id: userId, reply_id: reply.id, reason }); if (result.error) setError(result.error.message); else setError("Reply report submitted."); }}>Report</button>}{userId === reply.author_id && <button className="response-reply" onClick={async () => {
-                  if (!confirm("Delete this reply?")) return;
-                  const result = await supabase.from("replies").delete().eq("id", reply.id).eq("author_id", userId);
-                  if (result.error) setError(result.error.message);
-                  else {
-                    const bucket = reply.content_type === "photo" ? "gist-media" : reply.content_type === "voice" ? "gist-audio" : null;
-                    const path = bucket ? storagePath(reply.media_url, bucket) : null;
-                    if (bucket && path) await supabase.storage.from(bucket).remove([path]);
-                    await load();
-                  }
-                }>Delete</button>}</div>)}</div>}
+            {response.replies.length > 0 && <div className="replies">{response.replies.map((reply) => <div className="reply" key={reply.id}><ProfileAvatar profile={reply.profiles} fallbackAvatarUrl={reply.author_id === post.author_id ? post.profiles?.avatar_url : null} /><div className="reply-content"><strong>{reply.profiles?.display_name ?? "Gista User"}</strong><span> @{reply.profiles?.username ?? "user"}</span>{reply.content_type === "photo" && reply.media_url && <img src={reply.media_url} alt="Reply" className="response-media" />}{reply.body && <p>{reply.body}</p>}{reply.content_type === "voice" && reply.media_url && <VoiceNote src={reply.media_url} durationHint={reply.voice_duration_seconds} />}{userId && <button className="response-reply" onClick={async () => { const reason = prompt("Why are you reporting this reply?"); if (!reason) return; const result = await supabase.from("reports").insert({ reporter_id: userId, reply_id: reply.id, reason }); if (result.error) setError(result.error.message); else setError("Reply report submitted."); }}>Report</button>}{userId === reply.author_id && <button className="response-reply" onClick={() => void deleteReply(reply)}>Delete</button>}</div>)}</div>}
           </article>
         ))}
       </section>
