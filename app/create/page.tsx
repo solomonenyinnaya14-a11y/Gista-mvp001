@@ -9,6 +9,8 @@ import VoiceNote from "@/components/VoiceNote";
 
 const categories = ["Music","Movies / Entertainment","Art","Banter","Fun","Gossip","Sports","Relationships","Business","Technology","Education","Lifestyle","Society","News & Current Events","Opinions","Stories"];
 
+type Profile = { display_name: string | null; username: string | null; avatar_url: string | null };
+
 export default function CreatePage() {
   const [mode, setMode] = useState<"text" | "photo" | "voice">("text");
   const [photo, setPhoto] = useState<File | null>(null);
@@ -21,10 +23,24 @@ export default function CreatePage() {
   const [audioUrl, setAudioUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [profile, setProfile] = useState<Profile | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    const supabase = createClient();
+    let active = true;
+    const loadProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || !active) return;
+      const { data } = await supabase.from("profiles").select("display_name,username,avatar_url").eq("id", user.id).maybeSingle();
+      if (active) setProfile((data as Profile | null) ?? null);
+    };
+    void loadProfile();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     return () => { if (photoPreview) URL.revokeObjectURL(photoPreview); };
@@ -52,9 +68,7 @@ export default function CreatePage() {
       recorder.current = mediaRecorder;
       let elapsed = 0;
       setSeconds(0);
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size) chunks.current.push(event.data);
-      };
+      mediaRecorder.ondataavailable = (event) => { if (event.data.size) chunks.current.push(event.data); };
       mediaRecorder.onstop = () => {
         stream.getTracks().forEach((track) => track.stop());
         setAudio(new Blob(chunks.current, { type: mediaRecorder.mimeType || "audio/webm" }));
@@ -88,27 +102,18 @@ export default function CreatePage() {
     }
 
     let media_url: string | null = null;
-
     if (mode === "photo" && photo) {
       const extension = photo.name.split(".").pop() || "jpg";
       const path = user.id + "/" + crypto.randomUUID() + "." + extension;
       const upload = await supabase.storage.from("gist-media").upload(path, photo, { contentType: photo.type });
-      if (upload.error) {
-        setError(upload.error.message);
-        setLoading(false);
-        return;
-      }
+      if (upload.error) { setError(upload.error.message); setLoading(false); return; }
       media_url = supabase.storage.from("gist-media").getPublicUrl(path).data.publicUrl;
     }
 
     if (mode === "voice" && audio) {
       const path = user.id + "/" + crypto.randomUUID() + ".webm";
       const upload = await supabase.storage.from("gist-audio").upload(path, audio, { contentType: audio.type || "audio/webm" });
-      if (upload.error) {
-        setError(upload.error.message);
-        setLoading(false);
-        return;
-      }
+      if (upload.error) { setError(upload.error.message); setLoading(false); return; }
       media_url = supabase.storage.from("gist-audio").getPublicUrl(path).data.publicUrl;
     }
 
@@ -135,6 +140,8 @@ export default function CreatePage() {
     setLoading(false);
   }
 
+  const initials = profile?.display_name?.trim().charAt(0).toUpperCase() || "G";
+
   return (
     <main className="create-page">
       <header className="simple-header">
@@ -143,25 +150,21 @@ export default function CreatePage() {
         <button onClick={post} disabled={loading}>{loading ? "Posting…" : "Post"}</button>
       </header>
       <section className="create-card">
-        <div className="avatar">G</div>
+        <Link href="/profile" className="avatar" aria-label="Open your profile">
+          {profile?.avatar_url ? <img src={profile.avatar_url} alt="Your profile" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : initials}
+        </Link>
         <div className="format-row">
           <button type="button" className={mode === "text" ? "active" : ""} onClick={() => setMode("text")}><Type />Text</button>
           <button type="button" className={mode === "photo" ? "active" : ""} onClick={() => setMode("photo")}><ImagePlus />Photo</button>
           <button type="button" className={mode === "voice" ? "active" : ""} onClick={() => { setMode("voice"); setAudio(null); setAudioUrl(""); }}><Mic />Voice</button>
         </div>
 
-        {mode === "text" && (
-          <textarea value={text} onChange={(event) => setText(event.target.value)} maxLength={5000} placeholder="Say something worth sharing…" />
-        )}
+        {mode === "text" && <textarea value={text} onChange={(event) => setText(event.target.value)} maxLength={5000} placeholder="Say something worth sharing…" />}
 
         {mode === "photo" && (
           <div className="photo-composer">
             <label className="photo-picker" htmlFor="gist-photo">
-              {photoPreview ? (
-                <img src={photoPreview} alt="Selected Gist" className="photo-preview" />
-              ) : (
-                <div className="photo-empty"><ImagePlus size={32} /><span>Choose a photo</span></div>
-              )}
+              {photoPreview ? <img src={photoPreview} alt="Selected Gist" className="photo-preview" /> : <div className="photo-empty"><ImagePlus size={32} /><span>Choose a photo</span></div>}
             </label>
             <input id="gist-photo" type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(event) => {
               const file = event.target.files?.[0] ?? null;
@@ -177,11 +180,7 @@ export default function CreatePage() {
         {mode === "voice" && (
           <div>
             <p>{recording ? "Recording" : "Voice Gist"} · {seconds}s / 120s</p>
-            {recording ? (
-              <button type="button" className="primary" onClick={stop}><Square /> Stop recording</button>
-            ) : (
-              <button type="button" className="primary" onClick={start}><Mic /> {audio ? "Record again" : "Start recording"}</button>
-            )}
+            {recording ? <button type="button" className="primary" onClick={stop}><Square /> Stop recording</button> : <button type="button" className="primary" onClick={start}><Mic /> {audio ? "Record again" : "Start recording"}</button>}
             {audio && audioUrl && <VoiceNote src={audioUrl} durationHint={seconds} />}
           </div>
         )}
