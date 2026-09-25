@@ -32,10 +32,7 @@ type Gist = {
   saved: boolean;
 };
 
-function safeUsername(value: string) {
-  const cleaned = value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 30);
-  return cleaned.length >= 3 ? cleaned : "gistauser";
-}
+const PROFILE_SELECT = "id,username,display_name,bio,avatar_url,cover_url";
 
 export default function ProfilePage() {
   const supabase = useMemo(() => createClient(), []);
@@ -62,26 +59,23 @@ export default function ProfilePage() {
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user ?? null;
     if (!user) {
-      router.push("/auth");
+      router.replace("/auth");
       return;
     }
 
     let { data, error: profileError } = await supabase
       .from("profiles")
-      .select("id,username,display_name,bio,avatar_url,cover_url")
+      .select(PROFILE_SELECT)
       .eq("id", user.id)
       .maybeSingle();
 
+    // New accounts are normally created by the database trigger. Keep this as
+    // a safe fallback, but never manufacture a default identity.
     if (!data && !profileError) {
-      const preferred = safeUsername(String(user.user_metadata?.username ?? user.email?.split("@")[0] ?? ""));
       const { data: created, error: createError } = await supabase
         .from("profiles")
-        .insert({
-          id: user.id,
-          display_name: String(user.user_metadata?.display_name ?? "Gista User"),
-          username: preferred,
-        })
-        .select("id,username,display_name,bio,avatar_url,cover_url")
+        .insert({ id: user.id, display_name: "", username: null, bio: "" })
+        .select(PROFILE_SELECT)
         .single();
       data = created;
       profileError = createError;
@@ -95,7 +89,12 @@ export default function ProfilePage() {
 
     const [statsResult, ownGistsResult] = await Promise.all([
       supabase.rpc("get_profile_stats", { target_profile_id: user.id }),
-      supabase.from("posts").select("id,content_type,body,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", user.id).order("created_at", { ascending: false }).limit(30),
+      supabase
+        .from("posts")
+        .select("id,content_type,body,media_url,category,status,created_at,voice_duration_seconds")
+        .eq("author_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(30),
     ]);
 
     const profileStats = statsResult.data?.[0] as { gists?: number; followers?: number; following?: number } | undefined;
@@ -117,8 +116,8 @@ export default function ProfilePage() {
       saveRows = (savesResult.data ?? []) as Array<{ post_id: string }>;
     }
 
-    const likeCounts = Object.fromEntries(postIds.map((postId) => [postId, 0]));
-    const responseCounts = Object.fromEntries(postIds.map((postId) => [postId, 0]));
+    const likeCounts = Object.fromEntries(postIds.map((id) => [id, 0]));
+    const responseCounts = Object.fromEntries(postIds.map((id) => [id, 0]));
     likeRows.forEach((row) => { likeCounts[row.post_id] = (likeCounts[row.post_id] ?? 0) + 1; });
     responseRows.forEach((row) => { responseCounts[row.post_id] = (responseCounts[row.post_id] ?? 0) + 1; });
 
@@ -144,33 +143,34 @@ export default function ProfilePage() {
     setLoading(false);
   }
 
-  useEffect(() => {
-    void loadProfile();
-  }, [supabase]);
+  useEffect(() => { void loadProfile(); }, [supabase]);
 
-  async function uploadAvatar(file: File) {
+  async function uploadProfileMedia(file: File, kind: "avatar" | "cover") {
     setError("");
     setMessage("");
 
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    const allowed = ["image/jpeg", "image/png", "image/webp"];
+    const maxSize = kind === "avatar" ? 5 : 8;
+    if (!allowed.includes(file.type)) {
       setError("Use a JPG, PNG, or WebP image.");
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError("Profile photos must be 5MB or smaller.");
+    if (file.size > maxSize * 1024 * 1024) {
+      setError(`${kind === "avatar" ? "Profile photos" : "Cover photos"} must be ${maxSize}MB or smaller.`);
       return;
     }
 
-    setAvatarUploading(true);
+    if (kind === "avatar") setAvatarUploading(true); else setCoverUploading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      setAvatarUploading(false);
-      router.push("/auth");
+      if (kind === "avatar") setAvatarUploading(false); else setCoverUploading(false);
+      router.replace("/auth");
       return;
     }
 
     const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-    const path = user.id + "/" + crypto.randomUUID() + "." + extension;
+    const prefix = kind === "cover" ? "cover-" : "";
+    const path = `${user.id}/${prefix}${crypto.randomUUID()}.${extension}`;
     const upload = await supabase.storage.from("profile-media").upload(path, file, {
       contentType: file.type,
       cacheControl: "3600",
@@ -179,82 +179,28 @@ export default function ProfilePage() {
 
     if (upload.error) {
       setError(upload.error.message);
-      setAvatarUploading(false);
+      if (kind === "avatar") setAvatarUploading(false); else setCoverUploading(false);
       return;
     }
 
     const publicUrl = supabase.storage.from("profile-media").getPublicUrl(path).data.publicUrl;
+    const column = kind === "avatar" ? "avatar_url" : "cover_url";
     const { data: updated, error: updateError } = await supabase
       .from("profiles")
-      .update({ avatar_url: publicUrl })
+      .update({ [column]: publicUrl })
       .eq("id", user.id)
-      .select("id,username,display_name,bio,avatar_url,cover_url")
+      .select(PROFILE_SELECT)
       .single();
 
     if (updateError || !updated) {
       await supabase.storage.from("profile-media").remove([path]);
-      setError(updateError?.message ?? "Profile photo could not be saved.");
+      setError(updateError?.message ?? "Profile could not be updated.");
     } else {
       setProfile(updated as Profile);
-      setMessage("Profile photo updated.");
+      setMessage(kind === "avatar" ? "Profile photo updated." : "Cover photo updated.");
     }
 
-    setAvatarUploading(false);
-  }
-
-  async function uploadCover(file: File) {
-    setError("");
-    setMessage("");
-
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setError("Use a JPG, PNG, or WebP image.");
-      return;
-    }
-    if (file.size > 8 * 1024 * 1024) {
-      setError("Cover photos must be 8MB or smaller.");
-      return;
-    }
-
-    setCoverUploading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    const currentUser = session?.user ?? null;
-    if (!currentUser) {
-      setCoverUploading(false);
-      router.push("/auth");
-      return;
-    }
-
-    const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-    const path = currentUser.id + "/cover-" + crypto.randomUUID() + "." + extension;
-    const upload = await supabase.storage.from("profile-media").upload(path, file, {
-      contentType: file.type,
-      cacheControl: "3600",
-      upsert: false,
-    });
-
-    if (upload.error) {
-      setError(upload.error.message);
-      setCoverUploading(false);
-      return;
-    }
-
-    const publicUrl = supabase.storage.from("profile-media").getPublicUrl(path).data.publicUrl;
-    const { data: updated, error: updateError } = await supabase
-      .from("profiles")
-      .update({ cover_url: publicUrl })
-      .eq("id", currentUser.id)
-      .select("id,username,display_name,bio,avatar_url,cover_url")
-      .single();
-
-    if (updateError || !updated) {
-      await supabase.storage.from("profile-media").remove([path]);
-      setError(updateError?.message ?? "Cover photo could not be saved.");
-    } else {
-      setProfile(updated as Profile);
-      setMessage("Cover photo updated.");
-    }
-
-    setCoverUploading(false);
+    if (kind === "avatar") setAvatarUploading(false); else setCoverUploading(false);
   }
 
   async function saveProfile() {
@@ -265,8 +211,8 @@ export default function ProfilePage() {
     const cleanUsername = username.trim().replace(/^@+/, "").toLowerCase();
     const cleanBio = bio.trim();
 
-    if (!cleanName) return setError("Display name is required.");
-    if (!/^[a-z0-9_]{3,30}$/.test(cleanUsername)) {
+    if (cleanName.length > 60) return setError("Display name must be 60 characters or fewer.");
+    if (cleanUsername && !/^[a-z0-9_]{3,30}$/.test(cleanUsername)) {
       return setError("Username must be 3–30 characters using letters, numbers, or underscores.");
     }
     if (cleanBio.length > 160) return setError("Bio must be 160 characters or fewer.");
@@ -275,15 +221,19 @@ export default function ProfilePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       setSaving(false);
-      router.push("/auth");
+      router.replace("/auth");
       return;
     }
 
     const { data: updated, error: updateError } = await supabase
       .from("profiles")
-      .update({ display_name: cleanName, username: cleanUsername, bio: cleanBio || null })
+      .update({
+        display_name: cleanName,
+        username: cleanUsername || null,
+        bio: cleanBio,
+      })
       .eq("id", user.id)
-      .select("id,username,display_name,bio,avatar_url,cover_url")
+      .select(PROFILE_SELECT)
       .single();
 
     if (updateError || !updated) {
@@ -303,16 +253,11 @@ export default function ProfilePage() {
 
   async function toggleLike(gist: Gist) {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push("/auth");
-      return;
-    }
-
+    if (!user) return router.replace("/auth");
     setBusy(gist.id + "l");
     const result = gist.liked
       ? await supabase.from("likes").delete().eq("post_id", gist.id).eq("user_id", user.id)
       : await supabase.from("likes").insert({ post_id: gist.id, user_id: user.id });
-
     if (!result.error) {
       setGists((current) => current.map((item) => item.id === gist.id
         ? { ...item, liked: !item.liked, likes: item.likes + (item.liked ? -1 : 1) }
@@ -323,16 +268,11 @@ export default function ProfilePage() {
 
   async function toggleSave(gist: Gist) {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      router.push("/auth");
-      return;
-    }
-
+    if (!user) return router.replace("/auth");
     setBusy(gist.id + "s");
     const result = gist.saved
       ? await supabase.from("saves").delete().eq("post_id", gist.id).eq("user_id", user.id)
       : await supabase.from("saves").insert({ post_id: gist.id, user_id: user.id });
-
     if (!result.error) {
       setGists((current) => current.map((item) => item.id === gist.id ? { ...item, saved: !item.saved } : item));
     }
@@ -341,17 +281,15 @@ export default function ProfilePage() {
 
   function shareGist(gist: Gist) {
     const url = window.location.origin + "/gist/" + gist.id;
-    if (navigator.share) {
-      void navigator.share({ title: "Gista", text: gist.body ?? "Join this Gist on Gista", url });
-    } else {
-      void navigator.clipboard.writeText(url);
-    }
+    if (navigator.share) void navigator.share({ title: "Gista", text: gist.body ?? "Join this Gist on Gista", url });
+    else void navigator.clipboard.writeText(url);
   }
 
-  const initials = profile?.display_name?.trim()?.[0]?.toUpperCase() ?? "G";
-  const profileUsername = profile?.username ?? "username";
-
   if (loading) return <main className="profile-page"><div className="profile-loading">Loading your profile…</div></main>;
+
+  const initials = profile?.display_name?.trim()?.[0]?.toUpperCase() ?? "G";
+  const profileUsername = profile?.username ?? "";
+  const publicProfileHref = profileUsername ? "/profile/" + profileUsername : "/profile";
 
   return (
     <main className="profile-page">
@@ -366,49 +304,29 @@ export default function ProfilePage() {
           <div className="profile-cover">
             {profile?.cover_url && <img src={profile.cover_url} alt="" />}
             <label className="profile-cover-camera" aria-label="Change cover photo">
-              <Camera size={16} />
-              <span>{profile?.cover_url ? "Change cover" : "Add cover"}</span>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                hidden
-                disabled={coverUploading}
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) void uploadCover(file);
-                  event.currentTarget.value = "";
-                }}
-              />
-            </label>
-          </div>
-          <div className="profile-photo-wrap">
-            <div className="profile-photo">
-              {profile?.avatar_url ? <img src={profile.avatar_url} alt="Profile" /> : <span>{initials}</span>}
-            </div>
-            <label className="profile-camera" aria-label="Change profile photo">
-              <Camera size={16} />
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                hidden
-                disabled={avatarUploading}
-                onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) void uploadAvatar(file);
-                  event.currentTarget.value = "";
-                }}
-              />
+              <Camera size={16} /><span>{profile?.cover_url ? "Change cover" : "Add cover"}</span>
+              <input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={coverUploading}
+                onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadProfileMedia(file, "cover"); event.currentTarget.value = ""; }} />
             </label>
           </div>
 
-          <h1>{profile?.display_name || "Gista User"}</h1>
-          <p className="profile-username">@{profileUsername}</p>
+          <div className="profile-photo-wrap">
+            <div className="profile-photo">{profile?.avatar_url ? <img src={profile.avatar_url} alt="Profile" /> : <span>{initials}</span>}</div>
+            <label className="profile-camera" aria-label="Change profile photo">
+              <Camera size={16} />
+              <input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={avatarUploading}
+                onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadProfileMedia(file, "avatar"); event.currentTarget.value = ""; }} />
+            </label>
+          </div>
+
+          {profile?.display_name && <h1>{profile.display_name}</h1>}
+          {profileUsername && <p className="profile-username">@{profileUsername}</p>}
           {profile?.bio && <p className="profile-bio">{profile.bio}</p>}
 
           <div className="profile-stats">
-            <Link href={"/profile/" + profileUsername + "#my-gists"}><strong>{stats.gists}</strong><span>Gists</span></Link>
-            <Link href={"/profile/" + profileUsername + "/followers"}><strong>{stats.followers}</strong><span>Followers</span></Link>
-            <Link href={"/profile/" + profileUsername + "/following"}><strong>{stats.following}</strong><span>Following</span></Link>
+            <Link href={profileUsername ? publicProfileHref + "#my-gists" : "#my-gists"}><strong>{stats.gists}</strong><span>Gists</span></Link>
+            <Link href={profileUsername ? publicProfileHref + "/followers" : "#"}><strong>{stats.followers}</strong><span>Followers</span></Link>
+            <Link href={profileUsername ? publicProfileHref + "/following" : "#"}><strong>{stats.following}</strong><span>Following</span></Link>
           </div>
 
           <div className="profile-actions">
@@ -436,7 +354,7 @@ export default function ProfilePage() {
             </label>
             <label>Username
               <div className="username-input"><span>@</span><input value={username} maxLength={30} onChange={(event) => setUsername(event.target.value.replace(/\s/g, ""))} placeholder="username" /></div>
-              <small>3–30 characters: letters, numbers, underscores.</small>
+              <small>3–30 characters: letters, numbers, underscores. You can leave it blank for now.</small>
             </label>
             <label>Bio
               <textarea value={bio} maxLength={160} onChange={(event) => setBio(event.target.value)} placeholder="Tell people about yourself…" />
@@ -450,42 +368,22 @@ export default function ProfilePage() {
           <div className="section-title"><h2>Gists</h2><span>{stats.gists}</span></div>
           {gists.length === 0 ? (
             <div className="profile-empty">
-              <div className="empty-g">G</div>
-              <h3>No Gists yet</h3>
-              <p>Share your first thought, story, photo, or voice Gist.</p>
+              <div className="empty-g">G</div><h3>No Gists yet</h3><p>Share your first thought, story, photo, or voice Gist.</p>
               <Link href="/create" className="profile-primary">Start a Gist</Link>
             </div>
           ) : (
             <div className="profile-gists">
               {gists.map((gist) => (
                 <article className="profile-gist" key={gist.id}>
-                  <div className="profile-gist-meta">
-                    <Link href={"/gist/" + gist.id}>{gist.content_type === "voice" ? "Voice Gist" : gist.content_type === "photo" ? "Photo Gist" : "Gist"}</Link>
-                    <span>{gist.category}</span>
-                  </div>
-
-                  <Link className="profile-gist-content" href={"/gist/" + gist.id}>
-                    {gist.body && <p>{gist.body}</p>}
-                    {gist.content_type === "photo" && gist.media_url && <img src={gist.media_url} alt="Gist" />}
-                  </Link>
-
-                  {gist.content_type === "voice" && gist.media_url && (
-                    <div className="profile-gist-voice">
-                      <VoiceNote src={gist.media_url} durationHint={gist.voice_duration_seconds} />
-                    </div>
-                  )}
-
+                  <div className="profile-gist-meta"><Link href={"/gist/" + gist.id}>{gist.content_type === "voice" ? "Voice Gist" : gist.content_type === "photo" ? "Photo Gist" : "Gist"}</Link><span>{gist.category}</span></div>
+                  <Link className="profile-gist-content" href={"/gist/" + gist.id}>{gist.body && <p>{gist.body}</p>}{gist.content_type === "photo" && gist.media_url && <img src={gist.media_url} alt="Gist" />}</Link>
+                  {gist.content_type === "voice" && gist.media_url && <div className="profile-gist-voice"><VoiceNote src={gist.media_url} durationHint={gist.voice_duration_seconds} /></div>}
                   <div className="actions profile-gist-actions">
-                    <button type="button" className={gist.liked ? "liked" : ""} onClick={() => void toggleLike(gist)} disabled={busy === gist.id + "l"} aria-label="Like Gist">
-                      <Heart size={18} fill={gist.liked ? "currentColor" : "none"} /> {gist.likes}
-                    </button>
+                    <button type="button" className={gist.liked ? "liked" : ""} onClick={() => void toggleLike(gist)} disabled={busy === gist.id + "l"} aria-label="Like Gist"><Heart size={18} fill={gist.liked ? "currentColor" : "none"} /> {gist.likes}</button>
                     <Link className="feed-action-link" href={"/gist/" + gist.id}><MessageCircle size={18} /> {gist.responses}</Link>
                     <button type="button" onClick={() => shareGist(gist)} aria-label="Share Gist"><Share2 size={18} /></button>
-                    <button type="button" onClick={() => void toggleSave(gist)} disabled={busy === gist.id + "s"} aria-label="Save Gist">
-                      <Bookmark size={18} fill={gist.saved ? "currentColor" : "none"} />
-                    </button>
+                    <button type="button" onClick={() => void toggleSave(gist)} disabled={busy === gist.id + "s"} aria-label="Save Gist"><Bookmark size={18} fill={gist.saved ? "currentColor" : "none"} /></button>
                   </div>
-
                   <small>{new Date(gist.created_at).toLocaleString()}</small>
                 </article>
               ))}
