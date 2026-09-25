@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import styles from "./relationship.module.css";
 
 type Person = {
   id: string;
@@ -86,27 +87,27 @@ export default function RelationshipPage() {
         <span />
       </header>
 
-      <section className="relationship-page">
-        <div className="relationship-heading">
+      <section className={styles.page}>
+        <div className={styles.heading}>
           <h1>{title}</h1>
           <span>{count}</span>
         </div>
 
         {privateList ? (
-          <div className="relationship-empty">
+          <div className={styles.empty}>
             <h3>{kind === "following" ? "Following is private" : "This list is private"}</h3>
             <p>{kind === "following" ? "This user has chosen to keep the people they follow private." : "Follow this account to see its followers."}</p>
           </div>
         ) : people.length === 0 ? (
-          <div className="relationship-empty">
+          <div className={styles.empty}>
             <h3>No {title.toLowerCase()} yet</h3>
             <p>There is nobody to show here yet.</p>
           </div>
         ) : (
-          <div className="relationship-list">
+          <div className={styles.list}>
             {people.map((person) => (
-              <Link className="relationship-person" href={"/profile/" + (person.username ?? "")} key={person.id}>
-                <div className="relationship-avatar">
+              <Link className={styles.person} href={"/profile/" + (person.username ?? "")} key={person.id}>
+                <div className={styles.avatar}>
                   {person.avatar_url ? <img src={person.avatar_url} alt="" /> : (person.display_name?.[0]?.toUpperCase() ?? "G")}
                 </div>
                 <div>
