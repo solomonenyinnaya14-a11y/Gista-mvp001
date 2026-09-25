@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 const categories = ["Music", "Movies / Entertainment", "Art", "Banter", "Fun", "Gossip", "Sports", "Relationships", "Business", "Technology", "Education", "Lifestyle", "Society", "News & Current Events", "Opinions", "Stories"];
 
 type Person = { id: string; username: string | null; display_name: string | null; bio: string | null; avatar_url: string | null };
-type Gist = { id: string; body: string | null; content_type: string; media_url: string | null; category: string; created_at: string; profiles: Person | null };
+type Gist = { id: string; body: string | null; content_type: string; media_url: string | null; category: string; created_at: string; author_id: string; profile: Person | null };
 
 export default function SearchPage() {
   const supabase = useMemo(() => createClient(), []);
@@ -55,11 +55,11 @@ export default function SearchPage() {
         return;
       }
 
-      // Explicitly name the posts -> profiles foreign key. This avoids PostgREST
-      // relationship ambiguity when the schema cache contains multiple paths.
-      const { data, error: gistsError } = await supabase
+      // Search posts without embedding profiles. The previous embedded query could
+      // fail with PostgREST's ambiguous relationship error after schema changes.
+      const { data: postData, error: gistsError } = await supabase
         .from("posts")
-        .select("id,body,content_type,media_url,category,created_at,profiles!posts_author_id_fkey(display_name,username,avatar_url,bio,id)")
+        .select("id,body,content_type,media_url,category,created_at,author_id")
         .or(`body.ilike.${pattern},category.ilike.${pattern}`)
         .order("created_at", { ascending: false })
         .limit(30);
@@ -68,9 +68,26 @@ export default function SearchPage() {
       if (gistsError) {
         setError(gistsError.message);
         setGists([]);
-      } else {
-        setGists((data ?? []) as Gist[]);
+        setLoading(false);
+        return;
       }
+
+      const posts = postData ?? [];
+      const authorIds = [...new Set(posts.map((post) => post.author_id))];
+      const { data: profileData, error: profilesError } = authorIds.length
+        ? await supabase.from("profiles").select("id,username,display_name,bio,avatar_url").in("id", authorIds)
+        : { data: [], error: null };
+
+      if (cancelled) return;
+      if (profilesError) {
+        setError(profilesError.message);
+        setGists([]);
+        setLoading(false);
+        return;
+      }
+
+      const profilesById = new Map((profileData ?? []).map((profile) => [profile.id, profile as Person]));
+      setGists(posts.map((post) => ({ ...post, profile: profilesById.get(post.author_id) ?? null })) as Gist[]);
       setLoading(false);
     }, 250);
 
@@ -142,9 +159,9 @@ export default function SearchPage() {
             <Link className="post" key={post.id} href={`/gist/${post.id}`}>
               <div className="post-head">
                 <div className="avatar">
-                  {post.profiles?.avatar_url ? <img src={post.profiles.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : (post.profiles?.display_name?.[0]?.toUpperCase() ?? "G")}
+                  {post.profile?.avatar_url ? <img src={post.profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : (post.profile?.display_name?.[0]?.toUpperCase() ?? "G")}
                 </div>
-                <div className="identity"><strong>{post.profiles?.display_name ?? "Gista User"}</strong><span>@{post.profiles?.username ?? "user"} · {new Date(post.created_at).toLocaleString()}</span></div>
+                <div className="identity"><strong>{post.profile?.display_name ?? "Gista User"}</strong><span>@{post.profile?.username ?? "user"} · {new Date(post.created_at).toLocaleString()}</span></div>
                 <span className="category">{post.category}</span>
               </div>
               {post.content_type === "photo" && post.media_url && <img src={post.media_url} alt="Gist" loading="lazy" decoding="async" style={{ width: "100%", borderRadius: 16 }} />}
