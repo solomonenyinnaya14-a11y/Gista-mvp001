@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Mic, Square } from "lucide-react";
+import { Heart, Mic, Square } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import VoiceNote from "@/components/VoiceNote";
 
@@ -252,7 +252,11 @@ export default function GistPage() {
         {post.content_type === "photo" && post.media_url && <img src={post.media_url} alt="Gist" className="gist-media" />}
         {post.content_type === "voice" && post.media_url && <VoiceNote src={post.media_url} durationHint={post.voice_duration_seconds} />}
         {post.body && <p className="post-text">{post.body}</p>}
-        <div className="gist-meta"><span>❤️ {likeCount} Likes</span><span>💬 {responses.length} Responses</span><button type="button" onClick={() => setShowDna(true)}>Gist DNA</button></div>
+        <div className="gist-meta">
+          <span className="gist-like-meta"><Heart size={18} fill="currentColor" aria-hidden="true" /> {likeCount} Likes</span>
+          <span>💬 {responses.length} Responses</span>
+          <button type="button" onClick={() => setShowDna(true)}>Gist DNA</button>
+        </div>
       </article>
 
       {showDna && <div className="modal-backdrop" onClick={() => setShowDna(false)}>
