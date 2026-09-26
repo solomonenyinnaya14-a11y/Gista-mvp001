@@ -1,0 +1,173 @@
+/* Gista appearance themes. Purple brand/accent colors intentionally stay unchanged. */
+
+html[data-theme="dark"],
+html[data-theme="dark"] body {
+  background:#0f0d12;
+  color:#f7f5fa;
+}
+
+html[data-theme="dark"] .topbar,
+html[data-theme="dark"] .feed-tabs,
+html[data-theme="dark"] .bottom-nav,
+html[data-theme="dark"] .simple-header,
+html[data-theme="dark"] .profile-header,
+html[data-theme="dark"] .composer,
+html[data-theme="dark"] .post,
+html[data-theme="dark"] .create-card,
+html[data-theme="dark"] .profile-card,
+html[data-theme="dark"] .profile-hero,
+html[data-theme="dark"] .profile-editor,
+html[data-theme="dark"] .profile-content,
+html[data-theme="dark"] .auth-card,
+html[data-theme="dark"] .search-box,
+html[data-theme="dark"] .category-grid button,
+html[data-theme="dark"] .action-menu,
+html[data-theme="dark"] .profile-gist,
+html[data-theme="dark"] .skeleton-post {
+  background:#17151c;
+  color:#f7f5fa;
+  border-color:#2b2732;
+}
+
+html[data-theme="dark"] .app-shell,
+html[data-theme="dark"] .auth-page,
+html[data-theme="dark"] .create-page,
+html[data-theme="dark"] .profile-page {
+  background:#0f0d12;
+}
+
+html[data-theme="dark"] .topbar,
+html[data-theme="dark"] .feed-tabs,
+html[data-theme="dark"] .bottom-nav,
+html[data-theme="dark"] .simple-header,
+html[data-theme="dark"] .profile-header {
+  border-color:#2b2732;
+}
+
+html[data-theme="dark"] .actions,
+html[data-theme="dark"] .profile-empty,
+html[data-theme="dark"] .profile-gist,
+html[data-theme="dark"] .format-row {
+  border-color:#2b2732;
+}
+
+html[data-theme="dark"] .icon-btn:hover,
+html[data-theme="dark"] .action-menu button:hover,
+html[data-theme="dark"] .category-grid button:hover,
+html[data-theme="dark"] .category-grid button:focus-visible {
+  background:#24202a;
+}
+
+html[data-theme="dark"] .auth-card input,
+html[data-theme="dark"] .create-card textarea,
+html[data-theme="dark"] .create-card select,
+html[data-theme="dark"] .profile-editor input,
+html[data-theme="dark"] .profile-editor textarea,
+html[data-theme="dark"] .search-box,
+html[data-theme="dark"] .username-input {
+  background:#111015;
+  color:#f7f5fa;
+  border-color:#39333f;
+}
+
+html[data-theme="dark"] .auth-card input::placeholder,
+html[data-theme="dark"] .profile-editor input::placeholder,
+html[data-theme="dark"] .profile-editor textarea::placeholder,
+html[data-theme="dark"] .search-box input::placeholder {
+  color:#817b88;
+}
+
+html[data-theme="dark"] .auth-card>p,
+html[data-theme="dark"] .identity span,
+html[data-theme="dark"] .composer-input,
+html[data-theme="dark"] .profile-username,
+html[data-theme="dark"] .profile-bio,
+html[data-theme="dark"] .profile-stats>a,
+html[data-theme="dark"] .profile-stats>span,
+html[data-theme="dark"] .profile-editor small,
+html[data-theme="dark"] .editor-heading p,
+html[data-theme="dark"] .profile-gist small,
+html[data-theme="dark"] .search-empty,
+html[data-theme="dark"] .gist-status,
+html[data-theme="dark"] .actions button,
+html[data-theme="dark"] .bottom-nav button,
+html[data-theme="dark"] .bottom-nav a,
+html[data-theme="dark"] .section-title>span,
+html[data-theme="dark"] .profile-metric span {
+  color:#aaa4b1;
+}
+
+html[data-theme="dark"] .profile-card .bio,
+html[data-theme="dark"] .profile-stats b,
+html[data-theme="dark"] .profile-editor h2,
+html[data-theme="dark"] .profile-metric strong,
+html[data-theme="dark"] .profile-hero h1,
+html[data-theme="dark"] .profile-gist p,
+html[data-theme="dark"] .post-text,
+html[data-theme="dark"] .identity strong,
+html[data-theme="dark"] .section-title h2 {
+  color:#f7f5fa;
+}
+
+html[data-theme="dark"] .category,
+html[data-theme="dark"] .profile-secondary,
+html[data-theme="dark"] .format-row button,
+html[data-theme="dark"] .auth-message,
+html[data-theme="dark"] .profile-feedback,
+html[data-theme="dark"] .profile-metric,
+html[data-theme="dark"] .voice-note {
+  background:#211b2b;
+  border-color:#3a2d4d;
+}
+
+html[data-theme="dark"] .photo-preview,
+html[data-theme="dark"] .photo-empty,
+html[data-theme="dark"] .profile-gist img,
+html[data-theme="dark"] .gist-media {
+  background:#111015;
+}
+
+html[data-theme="dark"] .profile-photo,
+html[data-theme="dark"] .profile-avatar,
+html[data-theme="dark"] .avatar,
+html[data-theme="dark"] .empty-g,
+html[data-theme="dark"] .notification-avatar {
+  border-color:#332d3a;
+}
+
+html[data-theme="dark"] .profile-cover-camera {
+  background:#17151c;
+  color:#c4b5fd;
+  border:1px solid #3a2d4d;
+}
+
+html[data-theme="dark"] .theme-option {
+  background:#111015;
+  color:#f7f5fa;
+  border-color:#39333f;
+}
+
+html[data-theme="dark"] .theme-option.selected {
+  background:#211b2b;
+  border-color:#7c3aed;
+}
+
+html[data-theme="dark"] .theme-option-icon {
+  background:#24202a;
+}
+
+html[data-theme="dark"] .theme-note {
+  color:#aaa4b1;
+}
+
+/* Appearance controls */
+.appearance-heading h2{margin:0 0 5px}
+.appearance-heading p{margin:0;color:#8b8792;font-size:13px}
+.theme-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:16px}
+.theme-option{position:relative;min-height:82px;padding:12px 8px;border:1px solid #ddd8e6;border-radius:14px;background:#fff;color:#17151c;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;font-weight:750;font-size:12px}
+.theme-option:hover{border-color:#7c3aed}
+.theme-option.selected{border-color:#7c3aed;background:#f6f1ff;color:#5b21b6;box-shadow:0 0 0 2px #7c3aed12}
+.theme-option-icon{width:30px;height:30px;border-radius:10px;background:#f3f0f6;display:grid;place-items:center;font-size:15px}
+.theme-check{position:absolute;right:7px;top:7px;width:18px;height:18px;border-radius:50%;background:#7c3aed;color:#fff;display:grid;place-items:center;font-size:11px}
+.theme-note{margin:12px 0 0;color:#77727f;font-size:12px}
+@media(max-width:480px){.theme-options{gap:7px}.theme-option{min-height:78px;padding:10px 5px;font-size:11px}}
