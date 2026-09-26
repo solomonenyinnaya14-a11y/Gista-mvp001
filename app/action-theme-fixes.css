@@ -1,32 +1,44 @@
-/* Gista action color rules:
-   - Like + count: neutral gray until liked, then Gista purple.
-   - Save + count: neutral gray until saved, then Gista purple.
+/* Gista feed action colors:
+   - Like icon: gray until liked, then Gista purple.
+   - Save icon: gray until saved, then Gista purple.
+   - Like/Save counts: always neutral gray.
    - Response + count and Share + count: always neutral gray.
 */
 .actions button,
 .actions button svg,
 .actions .feed-action-link,
-.actions .feed-action-link svg {
+.actions .feed-action-link svg,
+.actions .action-count {
   color: #77727f !important;
 }
 
-.actions button.liked,
-.actions button.liked svg,
-.actions button.saved-action,
-.actions button.saved-action svg {
+.actions button.liked .action-icon,
+.actions button.saved-action .action-icon {
   color: #7c3aed !important;
+}
+
+/* Counts never inherit the purple selected state. */
+.actions button.liked .action-count,
+.actions button.saved-action .action-count,
+.actions .action-count {
+  color: #77727f !important;
 }
 
 html[data-theme="dark"] .actions button,
 html[data-theme="dark"] .actions button svg,
 html[data-theme="dark"] .actions .feed-action-link,
-html[data-theme="dark"] .actions .feed-action-link svg {
+html[data-theme="dark"] .actions .feed-action-link svg,
+html[data-theme="dark"] .actions .action-count {
   color: #aaa4b1 !important;
 }
 
-html[data-theme="dark"] .actions button.liked,
-html[data-theme="dark"] .actions button.liked svg,
-html[data-theme="dark"] .actions button.saved-action,
-html[data-theme="dark"] .actions button.saved-action svg {
+html[data-theme="dark"] .actions button.liked .action-icon,
+html[data-theme="dark"] .actions button.saved-action .action-icon {
   color: #7c3aed !important;
+}
+
+html[data-theme="dark"] .actions button.liked .action-count,
+html[data-theme="dark"] .actions button.saved-action .action-count,
+html[data-theme="dark"] .actions .action-count {
+  color: #aaa4b1 !important;
 }
