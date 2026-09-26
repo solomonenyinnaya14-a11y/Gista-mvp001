@@ -16,16 +16,15 @@ type Notification = {
   actorVerified?: boolean;
 };
 
-function message(n: Notification) {
-  const name = n.actor?.display_name ?? n.actor?.username ?? "Someone";
-  if (n.type === "follow") return `${name} followed you.`;
-  if (n.type === "like") return `${name} liked your Gist.`;
-  if (n.type === "response") return `${name} joined your Gist with a response.`;
-  if (n.type === "reply") return `${name} replied to your response.`;
-  if (n.type === "mention") return `${name} mentioned you.`;
-  if (n.type === "gist_active") return `Your Gist is now active.`;
-  if (n.type === "gist_trending") return `Your Gist is now trending.`;
-  return `${name} interacted with you.`;
+function notificationAction(type: string) {
+  if (type === "follow") return "followed you.";
+  if (type === "like") return "liked your Gist.";
+  if (type === "response") return "joined your Gist with a response.";
+  if (type === "reply") return "replied to your response.";
+  if (type === "mention") return "mentioned you.";
+  if (type === "gist_active") return "Your Gist is now active.";
+  if (type === "gist_trending") return "Your Gist is now trending.";
+  return "interacted with you.";
 }
 
 export default function NotificationsPage() {
@@ -131,16 +130,19 @@ export default function NotificationsPage() {
         <section className="feed">
           {items.map((item) => {
             const href = item.post_id ? "/gist/" + item.post_id : item.actor?.username ? "/profile/" + item.actor.username : null;
+            const actorName = item.actor?.display_name ?? item.actor?.username ?? "Someone";
+            const action = notificationAction(item.type);
             const content = (
               <div className={item.read_at ? "post notification-item" : "post notification-item unread"}>
                 <div className="post-head">
                   <div className="avatar notification-avatar">
                     {item.actor?.avatar_url ? <img src={item.actor.avatar_url} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} /> : item.actor?.display_name?.[0]?.toUpperCase() ?? "G"}
                   </div>
-                  <div className="identity">
-                    <strong>
-                      {message(item)}
-                      {item.actorVerified && <span title="Verified account" aria-label="Verified account" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, marginLeft: 6, borderRadius: "50%", background: "#6D28D9", color: "#fff", verticalAlign: "-2px" }}><Check size={11} strokeWidth={3} /></span>}
+                  <div className="identity notification-identity">
+                    <strong className="notification-message">
+                      <span className="notification-actor-name">{actorName}</span>
+                      {item.actorVerified && <span title="Verified account" aria-label="Verified account" className="notification-verified-badge"><Check size={11} strokeWidth={3} /></span>}
+                      <span className="notification-action"> {action}</span>
                     </strong>
                     <span>{new Date(item.created_at).toLocaleString()}</span>
                   </div>
