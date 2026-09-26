@@ -58,7 +58,7 @@ export default function VerifiedBadgeInjector() {
 
       const apply = () => {
         verifiedByUsername.forEach((color, username) => {
-          // Profile names in feeds/replies.
+          // Feed and conversation identity links.
           const profileLinks = document.querySelectorAll(`a[href="/profile/${CSS.escape(username)}"] strong`);
           profileLinks.forEach((target) => addBadge(target, color));
 
@@ -74,29 +74,27 @@ export default function VerifiedBadgeInjector() {
             if (usernameLine?.textContent?.includes(`@${username}`) && name) addBadge(name, color);
           });
 
-          // Own profile page: .profile-username sits directly below the h1.
+          // Signed-in user's profile page.
           document.querySelectorAll(".profile-username").forEach((usernameNode) => {
             if (usernameNode.textContent?.trim() !== `@${username}`) return;
             const name = usernameNode.previousElementSibling;
             if (name) addBadge(name, color);
           });
 
-          // Public profile page: the profile card uses <h1>...</h1><p>@username</p>.
+          // Public profile page. Its header is .profile-card > h1 followed by
+          // .profile-card > p containing the @username.
           document.querySelectorAll(".profile-card").forEach((card) => {
             const name = card.querySelector(":scope > h1");
-            if (!name) return;
-
-            const usernameNode = Array.from(card.children).find(
-              (child) => child.tagName === "P" && child.textContent?.trim() === `@${username}`,
-            );
-
-            if (usernameNode) addBadge(name, color);
+            const usernameNode = card.querySelector(":scope > h1 + p");
+            if (name && usernameNode?.textContent?.trim() === `@${username}`) {
+              addBadge(name, color);
+            }
           });
         });
       };
 
       apply();
-      const observer = new MutationObserver(() => apply());
+      const observer = new MutationObserver(apply);
       observer.observe(document.body, { childList: true, subtree: true });
       return () => observer.disconnect();
     }
