@@ -23,7 +23,7 @@ type Gist = {
   body: string | null;
   media_url: string | null;
   category: string;
-  status: string;
+  status: string | null;
   created_at: string;
   voice_duration_seconds: number | null;
   likes: number;
@@ -133,13 +133,22 @@ export default function ProfilePage() {
       followers: Number(profileStats?.followers ?? 0),
       following: Number(profileStats?.following ?? 0),
     });
-    setGists(ownGists.map((gist) => ({
-      ...gist,
-      likes: likeCounts[gist.id] ?? 0,
-      responses: responseCounts[gist.id] ?? 0,
-      liked: liked.has(gist.id),
-      saved: saved.has(gist.id),
-    })));
+    setGists(ownGists.map((gist) => {
+      const likes = likeCounts[gist.id] ?? 0;
+      const responses = responseCounts[gist.id] ?? 0;
+      const hasEngagement = likes > 0 || responses > 0;
+      // MVP rule: no engagement = no status; any engagement = Growing unless
+      // the stored status has already advanced to Active or Trending.
+      const status = hasEngagement ? (gist.status ?? "growing") : null;
+      return {
+        ...gist,
+        status,
+        likes,
+        responses,
+        liked: liked.has(gist.id),
+        saved: saved.has(gist.id),
+      };
+    }));
     setLoading(false);
   }
 
@@ -260,7 +269,12 @@ export default function ProfilePage() {
       : await supabase.from("likes").insert({ post_id: gist.id, user_id: user.id });
     if (!result.error) {
       setGists((current) => current.map((item) => item.id === gist.id
-        ? { ...item, liked: !item.liked, likes: item.likes + (item.liked ? -1 : 1) }
+        ? {
+            ...item,
+            liked: !item.liked,
+            likes: item.likes + (item.liked ? -1 : 1),
+            status: item.liked && item.likes <= 1 && item.responses === 0 ? null : item.status ?? "growing",
+          }
         : item));
     }
     setBusy(null);
@@ -378,6 +392,15 @@ export default function ProfilePage() {
                   <div className="profile-gist-meta"><Link href={"/gist/" + gist.id}>{gist.content_type === "voice" ? "Voice Gist" : gist.content_type === "photo" ? "Photo Gist" : "Gist"}</Link><span>{gist.category}</span></div>
                   <Link className="profile-gist-content" href={"/gist/" + gist.id}>{gist.body && <p>{gist.body}</p>}{gist.content_type === "photo" && gist.media_url && <img src={gist.media_url} alt="Gist" />}</Link>
                   {gist.content_type === "voice" && gist.media_url && <div className="profile-gist-voice"><VoiceNote src={gist.media_url} durationHint={gist.voice_duration_seconds} /></div>}
+
+                  {gist.status && (
+                    <div className="gist-status">
+                      <span className={gist.status === "trending" ? "hot" : "dot"}>{gist.status === "trending" ? "🔥" : "●"}</span>
+                      {gist.status.charAt(0).toUpperCase() + gist.status.slice(1)}
+                      <Link href={"/gist/" + gist.id}>Gist DNA</Link>
+                    </div>
+                  )}
+
                   <div className="actions profile-gist-actions">
                     <button type="button" className={gist.liked ? "liked" : ""} onClick={() => void toggleLike(gist)} disabled={busy === gist.id + "l"} aria-label="Like Gist"><Heart size={18} fill={gist.liked ? "currentColor" : "none"} /> {gist.likes}</button>
                     <Link className="feed-action-link" href={"/gist/" + gist.id}><MessageCircle size={18} /> {gist.responses}</Link>
