@@ -389,7 +389,17 @@ export default function ProfilePage() {
             <div className="profile-gists">
               {gists.map((gist) => (
                 <article className="profile-gist" key={gist.id}>
-                  <div className="profile-gist-meta"><Link href={"/gist/" + gist.id}>{gist.content_type === "voice" ? "Voice Gist" : gist.content_type === "photo" ? "Photo Gist" : "Gist"}</Link><span>{gist.category}</span></div>
+                  <div className="post-head" style={{ marginBottom: 12 }}>
+                    <div className="avatar" style={{ overflow: "hidden" }}>
+                      {profile?.avatar_url ? <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
+                    </div>
+                    <div className="identity">
+                      <strong>{profile?.display_name || "Gista User"}</strong>
+                      <span>@{profileUsername || "user"} · {new Date(gist.created_at).toLocaleString()}</span>
+                    </div>
+                    <span className="category">{gist.category}</span>
+                  </div>
+
                   <Link className="profile-gist-content" href={"/gist/" + gist.id}>{gist.body && <p>{gist.body}</p>}{gist.content_type === "photo" && gist.media_url && <img src={gist.media_url} alt="Gist" />}</Link>
                   {gist.content_type === "voice" && gist.media_url && <div className="profile-gist-voice"><VoiceNote src={gist.media_url} durationHint={gist.voice_duration_seconds} /></div>}
 
@@ -407,7 +417,6 @@ export default function ProfilePage() {
                     <button type="button" onClick={() => shareGist(gist)} aria-label="Share Gist"><Share2 size={18} /></button>
                     <button type="button" onClick={() => void toggleSave(gist)} disabled={busy === gist.id + "s"} aria-label="Save Gist"><Bookmark size={18} fill={gist.saved ? "currentColor" : "none"} /></button>
                   </div>
-                  <small>{new Date(gist.created_at).toLocaleString()}</small>
                 </article>
               ))}
             </div>
