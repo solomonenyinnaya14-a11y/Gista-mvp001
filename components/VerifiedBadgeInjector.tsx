@@ -58,6 +58,7 @@ export default function VerifiedBadgeInjector() {
 
       const apply = () => {
         verifiedByUsername.forEach((color, username) => {
+          // Profile names in feeds/replies.
           const profileLinks = document.querySelectorAll(`a[href="/profile/${CSS.escape(username)}"] strong`);
           profileLinks.forEach((target) => addBadge(target, color));
 
@@ -73,11 +74,24 @@ export default function VerifiedBadgeInjector() {
             if (usernameLine?.textContent?.includes(`@${username}`) && name) addBadge(name, color);
           });
 
-          const ownProfileUsername = document.querySelector(".profile-username");
-          if (ownProfileUsername?.textContent?.trim() === `@${username}`) {
-            const name = ownProfileUsername.previousElementSibling;
+          // Own profile page: .profile-username sits directly below the h1.
+          document.querySelectorAll(".profile-username").forEach((usernameNode) => {
+            if (usernameNode.textContent?.trim() !== `@${username}`) return;
+            const name = usernameNode.previousElementSibling;
             if (name) addBadge(name, color);
-          }
+          });
+
+          // Public profile page: the profile card uses <h1>...</h1><p>@username</p>.
+          document.querySelectorAll(".profile-card").forEach((card) => {
+            const name = card.querySelector(":scope > h1");
+            if (!name) return;
+
+            const usernameNode = Array.from(card.children).find(
+              (child) => child.tagName === "P" && child.textContent?.trim() === `@${username}`,
+            );
+
+            if (usernameNode) addBadge(name, color);
+          });
         });
       };
 
