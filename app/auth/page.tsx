@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+function safeNextPath(value: string | null) {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
+  return value;
+}
+
 export default function AuthPage(){
   const router = useRouter();
   const [mode,setMode]=useState<"login"|"signup">("login");
@@ -12,15 +17,36 @@ export default function AuthPage(){
   const [password,setPassword]=useState("");
   const [message,setMessage]=useState("");
   const [loading,setLoading]=useState(false);
+  const [returnTo,setReturnTo]=useState("/");
 
   useEffect(() => {
-    const error = new URLSearchParams(window.location.search).get("error");
+    const params = new URLSearchParams(window.location.search);
+    const queryReturnTo = params.get("returnTo");
+    if (queryReturnTo) {
+      setReturnTo(safeNextPath(queryReturnTo));
+    } else if (document.referrer) {
+      try {
+        const referrer = new URL(document.referrer);
+        if (referrer.origin === window.location.origin && referrer.pathname.startsWith("/gist/")) {
+          setReturnTo(referrer.pathname + referrer.search + referrer.hash);
+        }
+      } catch {
+        // Ignore malformed referrers and keep the safe default.
+      }
+    }
+
+    const error = params.get("error");
     if (error === "verification_failed") {
       setMessage("Email verification failed or the link has expired. Please request a new verification email.");
     } else if (error === "missing_verification_token") {
       setMessage("This verification link is incomplete. Please request a new verification email.");
     }
   }, []);
+
+  function goBackToDestination() {
+    router.replace(safeNextPath(returnTo));
+    router.refresh();
+  }
 
   async function submit(e:React.FormEvent){
     e.preventDefault();
@@ -35,24 +61,20 @@ export default function AuthPage(){
         setMessage(result.error.message);
       } else {
         setMessage("Signed in.");
-        router.replace("/");
-        router.refresh();
+        goBackToDestination();
       }
     } else {
-      // The production Site URL is used by Supabase for the confirmation email.
-      // The email template sends a token_hash to /auth/confirm, so verification
-      // works even when signup starts on localhost and the email is opened on
-      // another device.
-      const result=await supabase.auth.signUp({email,password});
+      // Keep the shared Gist as the destination after email verification.
+      const emailRedirectTo = `${window.location.origin}/auth/confirm?next=${encodeURIComponent(safeNextPath(returnTo))}`;
+      const result=await supabase.auth.signUp({email,password,options:{emailRedirectTo}});
 
       if(result.error){
         setMessage(result.error.message);
       } else if(result.data.session){
         setMessage("Account created.");
-        router.replace("/");
-        router.refresh();
+        goBackToDestination();
       } else {
-        setMessage("Check your email to verify your account.");
+        setMessage("Check your email to verify your account. You’ll return to the Gist after verification.");
       }
     }
 
