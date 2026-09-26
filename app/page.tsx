@@ -14,14 +14,12 @@ type EngagementCount = { post_id:string; share_count:number|string; save_count:n
 export default function HomePage(){
  const supabase=useMemo(()=>createClient(),[]); const router=useRouter();
  const [tab,setTab]=useState("Discover"); const [user,setUser]=useState<{id:string;email?:string|null}|null>(null); const [profile,setProfile]=useState<Profile|null>(null); const [posts,setPosts]=useState<Post[]>([]); const [loading,setLoading]=useState(true); const [feedError,setFeedError]=useState(""); const [busy,setBusy]=useState<string|null>(null); const [unreadNotifications,setUnreadNotifications]=useState(0);
- const hasLoadedOnce=useRef(false);
- const lastLoadedUserId=useRef<string|null|undefined>(undefined);
+ const initialLoadDone=useRef(false);
  const loadNotifications=useCallback(async(currentUser:{id:string}|null)=>{if(!currentUser){setUnreadNotifications(0);return} const {count}=await supabase.from("notifications").select("id",{count:"exact",head:true}).eq("recipient_id",currentUser.id).is("read_at",null);setUnreadNotifications(count??0)},[supabase]);
  const loadProfile=useCallback(async(currentUser:{id:string}|null)=>{if(!currentUser){setProfile(null);return} const {data,error}=await supabase.from("profiles").select("id,display_name,username,avatar_url").eq("id",currentUser.id).maybeSingle();if(error){setProfile(null);return}setProfile(data as Profile|null)},[supabase]);
  const loadPosts=useCallback(async(currentUser:{id:string}|null)=>{
-  // Keep the current feed visible while a tab refreshes. Only the first load
-  // needs the full-page skeleton, so navigation feels immediate on mobile.
-  setLoading(!hasLoadedOnce.current);setFeedError("");
+  // Do not blank an already-visible feed while a tab is refreshing.
+  setLoading(!initialLoadDone.current);setFeedError("");
   const limit=tab==="Following"?20:12;
   const query=supabase.from("posts").select("id,body,content_type,media_url,category,status,created_at,author_id,voice_duration_seconds").order("created_at",{ascending:false}).limit(limit);
   const blockedQuery=currentUser?supabase.from("blocks").select("blocked_id").eq("blocker_id",currentUser.id):Promise.resolve({data:[] as {blocked_id:string}[],error:null});
@@ -35,7 +33,7 @@ export default function HomePage(){
   const followingIds=new Set((followsResult.data??[]).map((item:{following_id:string})=>item.following_id));
   let data=(postsResult.data??[]).filter(post=>{if(blockedIds.has(post.author_id)||hiddenPostIds.has(post.id))return false;if(tab==="Following"&&!followingIds.has(post.author_id))return false;return true});
   if(tab==="Trending")data=data.filter(post=>post.status==="trending");
-  if(!data.length){setPosts([]);setLoading(false);hasLoadedOnce.current=true;return}
+  if(!data.length){setPosts([]);setLoading(false);initialLoadDone.current=true;return}
   const postIds=data.map(post=>post.id);const authorIds=[...new Set(data.map(post=>post.author_id))];
   const [likesResult,responsesResult,savesResult,profileResult,engagementResult]=await Promise.all([
     supabase.from("likes").select("post_id,user_id").in("post_id",postIds),
@@ -54,35 +52,27 @@ export default function HomePage(){
   const saved=new Set((savesResult.data??[]).map((item:{post_id:string})=>item.post_id));
   const profilesById=new Map((profileResult.data??[]).map(item=>[item.id,item as Profile]));
   setPosts(data.map(post=>{
-    const likes=likeCounts[post.id]??0;
-    const responses=responseCounts[post.id]??0;
-    const shares=shareCounts[post.id]??0;
-    const saves=saveCounts[post.id]??0;
-    // MVP status rule: engagement is required for Growing. This prevents an
-    // old/stale status from making a zero-engagement Gist look active.
+    const likes=likeCounts[post.id]??0;const responses=responseCounts[post.id]??0;const shares=shareCounts[post.id]??0;const saves=saveCounts[post.id]??0;
     const engaged=likes>0||responses>0||shares>0||saves>0;
     return {...post,profiles:profilesById.get(post.author_id)??null,likes,responses,shares,saves,liked:liked.has(post.id),saved:saved.has(post.id),status:engaged?(post.status??"growing"):null};
   }));
-  setLoading(false);setFeedError("");hasLoadedOnce.current=true;
+  setLoading(false);setFeedError("");initialLoadDone.current=true;
 },[supabase,tab]);
  useEffect(()=>{
   let active=true;let notificationChannel:ReturnType<typeof supabase.channel>|null=null;
   const initialize=async()=>{
     const {data:sessionData}=await supabase.auth.getSession();if(!active)return;
     const currentUser=sessionData.session?.user?{id:sessionData.session.user.id,email:sessionData.session.user.email}:null;
-    lastLoadedUserId.current=currentUser?.id??null;
     setUser(currentUser);void loadPosts(currentUser);void loadProfile(currentUser);void loadNotifications(currentUser);
     if(currentUser){notificationChannel=supabase.channel("home-notifications-"+currentUser.id).on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications",filter:"recipient_id=eq."+currentUser.id},()=>void loadNotifications(currentUser)).on("postgres_changes",{event:"UPDATE",schema:"public",table:"notifications",filter:"recipient_id=eq."+currentUser.id},()=>void loadNotifications(currentUser)).subscribe()}
   };
   void initialize();
   const {data:authSubscription}=supabase.auth.onAuthStateChange((event,session)=>{
-    // INITIAL_SESSION is already handled by initialize(). Avoid issuing a
-    // second set of feed/profile/notification queries on first render.
-    if(event==="INITIAL_SESSION")return;
+    // getSession() above handles the initial session. Only reload for real
+    // sign-in/sign-out transitions, not token refreshes or INITIAL_SESSION.
+    if(event!=="SIGNED_IN"&&event!=="SIGNED_OUT")return;
     const currentUser=session?.user?{id:session.user.id,email:session.user.email}:null;
-    if((currentUser?.id??null)===(lastLoadedUserId.current??null))return;
-    lastLoadedUserId.current=currentUser?.id??null;
-    setUser(currentUser);hasLoadedOnce.current=false;void loadPosts(currentUser);void loadProfile(currentUser);void loadNotifications(currentUser);
+    setUser(currentUser);initialLoadDone.current=false;void loadPosts(currentUser);void loadProfile(currentUser);void loadNotifications(currentUser);
   });
   return()=>{active=false;authSubscription.subscription.unsubscribe();if(notificationChannel)void supabase.removeChannel(notificationChannel)}
 },[loadNotifications,loadPosts,loadProfile,supabase]);
@@ -90,17 +80,9 @@ export default function HomePage(){
   if(!user){router.push("/auth");return}
   if(busy===post.id+"l")return;
   setBusy(post.id+"l");
-  const wasLiked=post.liked;
-  const nextLiked=!wasLiked;
+  const wasLiked=post.liked;const nextLiked=!wasLiked;
   setPosts(current=>current.map(item=>item.id===post.id?{...item,liked:nextLiked,likes:Math.max(0,item.likes+(nextLiked?1:-1)),status:nextLiked||item.responses>0||item.shares>0||item.saves>0?(item.status??"growing"):null}:item));
-  try{
-   const result=wasLiked
-    ? await supabase.from("likes").delete().eq("post_id",post.id).eq("user_id",user.id)
-    : await supabase.from("likes").insert({post_id:post.id,user_id:user.id});
-   if(result.error && result.error.code!=="23505")throw result.error;
-  }catch{
-   setPosts(current=>current.map(item=>item.id===post.id?{...item,liked:wasLiked,likes:post.likes,status:post.status}:item));
-  }finally{setBusy(null)}
+  try{const result=wasLiked?await supabase.from("likes").delete().eq("post_id",post.id).eq("user_id",user.id):await supabase.from("likes").insert({post_id:post.id,user_id:user.id});if(result.error&&result.error.code!=="23505")throw result.error}catch{setPosts(current=>current.map(item=>item.id===post.id?{...item,liked:wasLiked,likes:post.likes,status:post.status}:item))}finally{setBusy(null)}
  }
  async function toggleSave(post:Post){if(!user){router.push("/auth");return}setBusy(post.id+"s");const result=post.saved?await supabase.from("saves").delete().eq("post_id",post.id).eq("user_id",user.id):await supabase.from("saves").insert({post_id:post.id,user_id:user.id});if(!result.error)setPosts(current=>current.map(item=>item.id===post.id?{...item,saved:!item.saved,saves:Math.max(0,item.saves+(item.saved?-1:1)),status:item.saved&&item.likes===0&&item.responses===0&&item.shares===0&&item.saves<=1?null:item.status??"growing"}:item));setBusy(null)}
  async function sharePost(post:Post){if(!user){router.push("/auth");return}const url=window.location.origin+"/gist/"+post.id;try{if(navigator.share)await navigator.share({title:"Gista",text:post.body??"Join this Gist on Gista",url});else await navigator.clipboard.writeText(url);const result=await supabase.from("shares").insert({post_id:post.id,user_id:user.id});if(!result.error)setPosts(current=>current.map(item=>item.id===post.id?{...item,shares:item.shares+1,status:item.status??"growing"}:item))}catch{/* cancelled share */}}
