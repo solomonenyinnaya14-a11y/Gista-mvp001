@@ -188,33 +188,3 @@ html[data-theme="dark"] .profile-stats > span {
   visibility:visible !important;
 }
 
-/* Like and Save stay Gista purple; Response and Share stay neutral gray. */
-.actions button:nth-child(1),
-.actions button:nth-child(1) svg,
-.actions button:nth-child(4),
-.actions button:nth-child(4) svg {
-  color:#7c3aed !important;
-}
-
-.actions button:nth-child(2),
-.actions button:nth-child(2) svg,
-.actions button:nth-child(3),
-.actions button:nth-child(3) svg,
-.actions .feed-action-link:nth-child(2) {
-  color:#77727f !important;
-}
-
-html[data-theme="dark"] .actions button:nth-child(2),
-html[data-theme="dark"] .actions button:nth-child(2) svg,
-html[data-theme="dark"] .actions button:nth-child(3),
-html[data-theme="dark"] .actions button:nth-child(3) svg,
-html[data-theme="dark"] .actions .feed-action-link:nth-child(2) {
-  color:#aaa4b1 !important;
-}
-
-html[data-theme="dark"] .actions button:nth-child(1),
-html[data-theme="dark"] .actions button:nth-child(1) svg,
-html[data-theme="dark"] .actions button:nth-child(4),
-html[data-theme="dark"] .actions button:nth-child(4) svg {
-  color:#7c3aed !important;
-}

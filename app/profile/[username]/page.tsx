@@ -28,6 +28,7 @@ type PublicPost = {
   voice_duration_seconds: number | null;
   likes: number;
   responses: number;
+  saves: number;
   liked: boolean;
   saved: boolean;
 };
@@ -119,9 +120,7 @@ export default function PublicProfile() {
     const [likesResult, responsesResult, savesResult] = await Promise.all([
       supabase.from("likes").select("post_id,user_id").in("post_id", postIds),
       supabase.from("responses").select("post_id").in("post_id", postIds),
-      user
-        ? supabase.from("saves").select("post_id").eq("user_id", user.id).in("post_id", postIds)
-        : Promise.resolve({ data: [] as { post_id: string }[] }),
+      supabase.from("saves").select("post_id,user_id").in("post_id", postIds),
     ]);
 
     const likeCounts = Object.fromEntries(postIds.map((postId) => [postId, 0]));
@@ -130,7 +129,9 @@ export default function PublicProfile() {
     (responsesResult.data ?? []).forEach((row: { post_id: string }) => { responseCounts[row.post_id] = (responseCounts[row.post_id] ?? 0) + 1; });
 
     const liked = new Set((likesResult.data ?? []).filter((row: { user_id: string }) => row.user_id === user?.id).map((row: { post_id: string }) => row.post_id));
-    const saved = new Set((savesResult.data ?? []).map((row: { post_id: string }) => row.post_id));
+    const saveCounts = Object.fromEntries(postIds.map((postId) => [postId, 0]));
+    (savesResult.data ?? []).forEach((row: { post_id: string }) => { saveCounts[row.post_id] = (saveCounts[row.post_id] ?? 0) + 1; });
+    const saved = new Set((savesResult.data ?? []).filter((row: { user_id: string }) => row.user_id === user?.id).map((row: { post_id: string }) => row.post_id));
 
     setPrivateMessage("");
     setGists(ownPosts.map((post) => {
@@ -144,6 +145,7 @@ export default function PublicProfile() {
         status,
         likes,
         responses,
+        saves: saveCounts[post.id] ?? 0,
         liked: liked.has(post.id),
         saved: saved.has(post.id),
       };
@@ -209,7 +211,7 @@ export default function PublicProfile() {
       : await supabase.from("saves").insert({ post_id: post.id, user_id: me.id });
 
     if (!result.error) {
-      setGists((current) => current.map((item) => item.id === post.id ? { ...item, saved: !item.saved } : item));
+      setGists((current) => current.map((item) => item.id === post.id ? { ...item, saved: !item.saved, saves: Math.max(0, item.saves + (item.saved ? -1 : 1)) } : item));
     }
     setBusy(null);
   }
@@ -301,7 +303,7 @@ export default function PublicProfile() {
                 <button type="button" className={post.liked ? "liked" : ""} onClick={() => void toggleLike(post)} disabled={busy === post.id + "l"} aria-label="Like Gist"><Heart size={18} fill={post.liked ? "currentColor" : "none"} /> {post.likes}</button>
                 <Link className="feed-action-link" href={"/gist/" + post.id}><MessageCircle size={18} /> {post.responses}</Link>
                 <button type="button" onClick={() => share(post)} aria-label="Share Gist"><Share2 size={18} /></button>
-                <button type="button" onClick={() => void toggleSave(post)} disabled={busy === post.id + "s"} aria-label="Save Gist"><Bookmark size={18} fill={post.saved ? "currentColor" : "none"} /></button>
+                <button type="button" className={post.saved ? "saved-action" : ""} onClick={() => void toggleSave(post)} disabled={busy === post.id + "s"} aria-label="Save Gist"><Bookmark size={18} fill={post.saved ? "currentColor" : "none"} /> {post.saves}</button>
               </div>
             </article>
           ))

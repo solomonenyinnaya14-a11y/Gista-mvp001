@@ -28,6 +28,7 @@ type Gist = {
   voice_duration_seconds: number | null;
   likes: number;
   responses: number;
+  saves: number;
   liked: boolean;
   saved: boolean;
 };
@@ -130,7 +131,7 @@ export default function ProfilePage() {
     const postIds = ownGists.map((gist) => gist.id);
     let likeRows: Array<{ post_id: string; user_id: string }> = [];
     let responseRows: Array<{ post_id: string }> = [];
-    let saveRows: Array<{ post_id: string }> = [];
+    let saveRows: Array<{ post_id: string; user_id: string }> = [];
 
     if (postIds.length) {
       const [likesResult, responsesResult, savesResult] = await Promise.all([
@@ -138,8 +139,7 @@ export default function ProfilePage() {
         supabase.from("responses").select("post_id").in("post_id", postIds),
         supabase
           .from("saves")
-          .select("post_id")
-          .eq("user_id", user.id)
+          .select("post_id,user_id")
           .in("post_id", postIds),
       ]);
       likeRows = (likesResult.data ?? []) as Array<{ post_id: string; user_id: string }>;
@@ -159,7 +159,9 @@ export default function ProfilePage() {
     const liked = new Set(
       likeRows.filter((row) => row.user_id === user.id).map((row) => row.post_id)
     );
-    const saved = new Set(saveRows.map((row) => row.post_id));
+    const saveCounts = Object.fromEntries(postIds.map((id) => [id, 0]));
+    saveRows.forEach((row) => { saveCounts[row.post_id] = (saveCounts[row.post_id] ?? 0) + 1; });
+    const saved = new Set(saveRows.filter((row) => row.user_id === user.id).map((row) => row.post_id));
 
     setGists(
       ownGists.map((gist) => {
@@ -171,6 +173,7 @@ export default function ProfilePage() {
           status,
           likes,
           responses,
+          saves: saveCounts[gist.id] ?? 0,
           liked: liked.has(gist.id),
           saved: saved.has(gist.id),
         };
@@ -338,7 +341,9 @@ export default function ProfilePage() {
     if (!result.error) {
       setGists((current) =>
         current.map((item) =>
-          item.id === gist.id ? { ...item, saved: !item.saved } : item
+          item.id === gist.id
+            ? { ...item, saved: !item.saved, saves: Math.max(0, item.saves + (item.saved ? -1 : 1)) }
+            : item
         )
       );
     }
@@ -466,7 +471,7 @@ export default function ProfilePage() {
                     <button type="button" className={gist.liked ? "liked" : ""} onClick={() => void toggleLike(gist)} disabled={busy === gist.id + "l"} aria-label="Like Gist"><Heart size={18} fill={gist.liked ? "currentColor" : "none"} /> {gist.likes}</button>
                     <Link className="feed-action-link" href={"/gist/" + gist.id}><MessageCircle size={18} /> {gist.responses}</Link>
                     <button type="button" onClick={() => shareGist(gist)} aria-label="Share Gist"><Share2 size={18} /></button>
-                    <button type="button" onClick={() => void toggleSave(gist)} disabled={busy === gist.id + "s"} aria-label="Save Gist"><Bookmark size={18} fill={gist.saved ? "currentColor" : "none"} /></button>
+                    <button type="button" className={gist.saved ? "saved-action" : ""} onClick={() => void toggleSave(gist)} disabled={busy === gist.id + "s"} aria-label="Save Gist"><Bookmark size={18} fill={gist.saved ? "currentColor" : "none"} /> {gist.saves}</button>
                   </div>
                 </article>
               ))}

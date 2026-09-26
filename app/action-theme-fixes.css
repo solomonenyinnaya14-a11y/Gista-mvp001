@@ -1,75 +1,43 @@
-/* Gista action-state colors — single source of truth.
-   Like/Save icons are neutral until selected, then Gista purple.
-   All action counts, Response, and Share stay neutral gray.
-   Selected state is detected from the actual icon fill so this works
-   consistently across Home, Profile, Public Profile, and Saved pages. */
+/* Gista action state colors — state, not position.
+   Unselected Like/Save/Response/Share are neutral gray.
+   Selected Like/Save icons are Gista purple. Counts always stay gray. */
 
-.actions > :first-child,
-.actions > :first-child svg,
-.actions > :nth-child(4),
-.actions > :nth-child(4) svg,
-.actions > .feed-action-link,
-.actions > .feed-action-link svg {
+.actions > *,
+.actions > * svg {
   color: #77727f !important;
 }
 
-.actions > :first-child:has(svg[fill="currentColor"]),
-.actions > :first-child:has(svg[fill="currentColor"]) svg,
-.actions > :first-child.liked,
-.actions > :first-child.liked svg,
-.actions > :nth-child(4):has(svg[fill="currentColor"]),
-.actions > :nth-child(4):has(svg[fill="currentColor"]) svg,
-.actions > :nth-child(4).saved-action,
-.actions > :nth-child(4).saved-action svg {
+.actions > * svg[fill="currentColor"] {
   color: #7c3aed !important;
 }
 
-/* Counts never inherit the selected icon color. */
-.actions .action-count,
-.actions > :first-child .action-count,
-.actions > :nth-child(4) .action-count {
+.actions .action-count {
   color: #77727f !important;
 }
 
-/* Response and Share are always neutral. */
-.actions > :nth-child(2),
-.actions > :nth-child(2) svg,
-.actions > :nth-child(3),
-.actions > :nth-child(3) svg,
 .actions > .share-action,
-.actions > .share-action svg {
+.actions > .share-action svg,
+.actions .feed-action-link.share-action,
+.actions .feed-action-link.share-action svg {
   color: #77727f !important;
 }
 
-/* Dark mode uses the same state logic with a lighter neutral gray. */
-html[data-theme="dark"] .actions > :first-child,
-html[data-theme="dark"] .actions > :first-child svg,
-html[data-theme="dark"] .actions > :nth-child(4),
-html[data-theme="dark"] .actions > :nth-child(4) svg,
-html[data-theme="dark"] .actions > .feed-action-link,
-html[data-theme="dark"] .actions > .feed-action-link svg {
+html[data-theme="dark"] .actions > *,
+html[data-theme="dark"] .actions > * svg {
   color: #aaa4b1 !important;
 }
 
-html[data-theme="dark"] .actions > :first-child:has(svg[fill="currentColor"]),
-html[data-theme="dark"] .actions > :first-child:has(svg[fill="currentColor"]) svg,
-html[data-theme="dark"] .actions > :first-child.liked,
-html[data-theme="dark"] .actions > :first-child.liked svg,
-html[data-theme="dark"] .actions > :nth-child(4):has(svg[fill="currentColor"]),
-html[data-theme="dark"] .actions > :nth-child(4):has(svg[fill="currentColor"]) svg,
-html[data-theme="dark"] .actions > :nth-child(4).saved-action,
-html[data-theme="dark"] .actions > :nth-child(4).saved-action svg {
+html[data-theme="dark"] .actions > * svg[fill="currentColor"] {
   color: #7c3aed !important;
 }
 
-html[data-theme="dark"] .actions .action-count,
-html[data-theme="dark"] .actions > :first-child .action-count,
-html[data-theme="dark"] .actions > :nth-child(4) .action-count,
-html[data-theme="dark"] .actions > :nth-child(2),
-html[data-theme="dark"] .actions > :nth-child(2) svg,
-html[data-theme="dark"] .actions > :nth-child(3),
-html[data-theme="dark"] .actions > :nth-child(3) svg,
+html[data-theme="dark"] .actions .action-count {
+  color: #aaa4b1 !important;
+}
+
 html[data-theme="dark"] .actions > .share-action,
-html[data-theme="dark"] .actions > .share-action svg {
+html[data-theme="dark"] .actions > .share-action svg,
+html[data-theme="dark"] .actions .feed-action-link.share-action,
+html[data-theme="dark"] .actions .feed-action-link.share-action svg {
   color: #aaa4b1 !important;
 }
