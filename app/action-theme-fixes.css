@@ -1,30 +1,32 @@
-/* Gista action color rules: only Like and Save are purple. Response and Share stay neutral gray. */
-.actions button:nth-child(1),
-.actions button:nth-child(1) svg,
-.actions button:nth-child(4),
-.actions button:nth-child(4) svg {
-  color:#7c3aed !important;
+/* Gista action color rules:
+   - Like + count: neutral gray until liked, then Gista purple.
+   - Save + count: neutral gray until saved, then Gista purple.
+   - Response + count and Share + count: always neutral gray.
+*/
+.actions button,
+.actions button svg,
+.actions .feed-action-link,
+.actions .feed-action-link svg {
+  color: #77727f !important;
 }
 
-.actions button:nth-child(2),
-.actions button:nth-child(2) svg,
-.actions button:nth-child(3),
-.actions button:nth-child(3) svg,
-.actions .feed-action-link:nth-child(2) {
-  color:#77727f !important;
+.actions button.liked,
+.actions button.liked svg,
+.actions button.saved-action,
+.actions button.saved-action svg {
+  color: #7c3aed !important;
 }
 
-html[data-theme="dark"] .actions button:nth-child(2),
-html[data-theme="dark"] .actions button:nth-child(2) svg,
-html[data-theme="dark"] .actions button:nth-child(3),
-html[data-theme="dark"] .actions button:nth-child(3) svg,
-html[data-theme="dark"] .actions .feed-action-link:nth-child(2) {
-  color:#aaa4b1 !important;
+html[data-theme="dark"] .actions button,
+html[data-theme="dark"] .actions button svg,
+html[data-theme="dark"] .actions .feed-action-link,
+html[data-theme="dark"] .actions .feed-action-link svg {
+  color: #aaa4b1 !important;
 }
 
-html[data-theme="dark"] .actions button:nth-child(1),
-html[data-theme="dark"] .actions button:nth-child(1) svg,
-html[data-theme="dark"] .actions button:nth-child(4),
-html[data-theme="dark"] .actions button:nth-child(4) svg {
-  color:#7c3aed !important;
+html[data-theme="dark"] .actions button.liked,
+html[data-theme="dark"] .actions button.liked svg,
+html[data-theme="dark"] .actions button.saved-action,
+html[data-theme="dark"] .actions button.saved-action svg {
+  color: #7c3aed !important;
 }
