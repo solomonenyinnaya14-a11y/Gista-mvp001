@@ -454,11 +454,13 @@ export default function HomePage() {
             </div>
           ) : posts.length === 0 ? (
             <div className="empty-state">
-              <h3>No Gists yet</h3>
+              <h3>{tab === "Trending" ? "No Trending Gists yet" : "No Gists yet"}</h3>
               <p>
                 {tab === "Following"
                   ? "Follow people to see their Gists here."
-                  : "Be the first person to start a Gist."}
+                  : tab === "Trending"
+                    ? "When Gists start trending, they will appear here."
+                    : "Be the first person to start a Gist."}
               </p>
             </div>
           ) : (
