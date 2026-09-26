@@ -61,7 +61,7 @@ export default function VerifiedBadgeInjector() {
           const profileLinks = document.querySelectorAll(`a[href="/profile/${CSS.escape(username)}"] strong`);
           profileLinks.forEach((target) => addBadge(target, color));
 
-          document.querySelectorAll(".identity").forEach((identity) => {
+          document.querySelectorAll(".identity:not(.notification-identity)").forEach((identity) => {
             const usernameLine = identity.querySelector(":scope > span");
             const name = identity.querySelector(":scope > strong");
             if (usernameLine?.textContent?.includes(`@${username}`) && name) addBadge(name, color);
