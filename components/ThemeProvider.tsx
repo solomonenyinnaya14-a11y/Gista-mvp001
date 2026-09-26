@@ -13,15 +13,9 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 const STORAGE_KEY = "gista-theme";
 
-function getSystemTheme(): "light" | "dark" {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
-}
-
 export default function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Gista opens in Light mode by default. Users can explicitly choose Dark
-  // or System Default from Settings.
+  // Gista's default/system appearance is intentionally Light. Dark mode is
+  // only used when the user explicitly selects Dark in Settings.
   const [theme, setThemeState] = useState<Theme>("light");
   const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
 
@@ -33,18 +27,12 @@ export default function ThemeProvider({ children }: { children: React.ReactNode 
   }, []);
 
   useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-
-    const apply = () => {
-      const next = theme === "system" ? getSystemTheme() : theme;
-      document.documentElement.dataset.theme = next;
-      document.documentElement.style.colorScheme = next;
-      setResolvedTheme(next);
-    };
-
-    apply();
-    media.addEventListener?.("change", apply);
-    return () => media.removeEventListener?.("change", apply);
+    // "System Default" is intentionally Light for Gista. This prevents the
+    // app from unexpectedly switching to dark because the device is dark.
+    const next = theme === "dark" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    document.documentElement.style.colorScheme = next;
+    setResolvedTheme(next);
   }, [theme]);
 
   const setTheme = (next: Theme) => {
