@@ -22,20 +22,33 @@ export default function HomePage(){
  async function toggleLike(post:Post){
   if(!user){router.push("/auth");return}
   setBusy(post.id+"l");
-  const wasLiked=post.liked;
-  const result=wasLiked
-   ? await supabase.from("likes").delete().eq("post_id",post.id).eq("user_id",user.id).select("post_id,user_id")
-   : await supabase.from("likes").insert({post_id:post.id,user_id:user.id}).select("post_id,user_id");
-  if(result.error){setBusy(null);return}
-  // Re-read the authoritative like rows after every toggle. This prevents the UI
-  // from getting stuck when the last like is removed or when state is stale.
-  const {data:likeRows,error:likeReadError}=await supabase.from("likes").select("post_id,user_id").eq("post_id",post.id);
-  if(likeReadError){setBusy(null);return}
-  const likes=likeRows?.length??0;
-  const liked=!!likeRows?.some((row:{user_id:string})=>row.user_id===user.id);
-  const hasOtherEngagement=post.responses>0||post.shares>0||post.saves>0;
-  setPosts(current=>current.map(item=>item.id===post.id?{...item,liked,likes,status:likes+post.responses+post.shares+post.saves>0?(item.status??"growing"):null}:item));
-  setBusy(null);
+  try{
+   // Never trust the rendered `post.liked` flag when deciding what to mutate.
+   // It can be stale after navigation, a refresh, or another client changing the like.
+   // Ask Supabase for the current user's actual like row first, then toggle that row.
+   const {data:currentLike,error:lookupError}=await supabase.from("likes").select("post_id").eq("post_id",post.id).eq("user_id",user.id).maybeSingle();
+   if(lookupError)throw lookupError;
+   if(currentLike){
+    const {error}=await supabase.from("likes").delete().eq("post_id",post.id).eq("user_id",user.id);
+    if(error)throw error;
+   }else{
+    const {error}=await supabase.from("likes").insert({post_id:post.id,user_id:user.id});
+    if(error && error.code!=="23505")throw error;
+   }
+   // Re-read both the total count and this user's row so the UI always reflects the database.
+   const [{data:likeRows,error:likeReadError},{data:userLike,error:userLikeError}]=await Promise.all([
+    supabase.from("likes").select("user_id").eq("post_id",post.id),
+    supabase.from("likes").select("post_id").eq("post_id",post.id).eq("user_id",user.id).maybeSingle()
+   ]);
+   if(likeReadError)throw likeReadError;
+   if(userLikeError)throw userLikeError;
+   const likes=likeRows?.length??0;
+   const liked=!!userLike;
+   setPosts(current=>current.map(item=>item.id===post.id?{...item,liked,likes,status:likes+item.responses+item.shares+item.saves>0?(item.status??"growing"):null}:item));
+  }catch{
+   // If the mutation fails, restore the authoritative feed state instead of leaving a fake heart/count.
+   await loadPosts(user);
+  }finally{setBusy(null)}
  }
  async function toggleSave(post:Post){if(!user){router.push("/auth");return}setBusy(post.id+"s");const result=post.saved?await supabase.from("saves").delete().eq("post_id",post.id).eq("user_id",user.id):await supabase.from("saves").insert({post_id:post.id,user_id:user.id});if(!result.error)setPosts(current=>current.map(item=>item.id===post.id?{...item,saved:!item.saved,saves:Math.max(0,item.saves+(item.saved?-1:1)),status:item.saved&&item.likes===0&&item.responses===0&&item.shares===0&&item.saves<=1?null:item.status??"growing"}:item));setBusy(null)}
  async function sharePost(post:Post){if(!user){router.push("/auth");return}const url=window.location.origin+"/gist/"+post.id;try{if(navigator.share)await navigator.share({title:"Gista",text:post.body??"Join this Gist on Gista",url});else await navigator.clipboard.writeText(url);const result=await supabase.from("shares").insert({post_id:post.id,user_id:user.id});if(!result.error)setPosts(current=>current.map(item=>item.id===post.id?{...item,shares:item.shares+1,status:item.status??"growing"}:item))}catch{/* cancelled share */}}
