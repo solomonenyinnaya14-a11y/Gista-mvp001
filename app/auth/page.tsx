@@ -1,23 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function AuthPage(){
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [mode,setMode]=useState<"login"|"signup">("login");
   const [email,setEmail]=useState("");
   const [password,setPassword]=useState("");
-  const [message,setMessage]=useState(() => {
-    const error = searchParams.get("error");
-    if (error === "verification_failed") return "Email verification failed or the link has expired. Please request a new verification email.";
-    if (error === "missing_verification_token") return "This verification link is incomplete. Please request a new verification email.";
-    return "";
-  });
+  const [message,setMessage]=useState("");
   const [loading,setLoading]=useState(false);
+
+  useEffect(() => {
+    const error = new URLSearchParams(window.location.search).get("error");
+    if (error === "verification_failed") {
+      setMessage("Email verification failed or the link has expired. Please request a new verification email.");
+    } else if (error === "missing_verification_token") {
+      setMessage("This verification link is incomplete. Please request a new verification email.");
+    }
+  }, []);
 
   async function submit(e:React.FormEvent){
     e.preventDefault();
