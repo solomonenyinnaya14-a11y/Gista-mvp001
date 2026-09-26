@@ -58,7 +58,6 @@ export default function VerifiedBadgeInjector() {
 
       const apply = () => {
         verifiedByUsername.forEach((color, username) => {
-          // Feed and conversation identity links.
           const profileLinks = document.querySelectorAll(`a[href="/profile/${CSS.escape(username)}"] strong`);
           profileLinks.forEach((target) => addBadge(target, color));
 
@@ -74,27 +73,16 @@ export default function VerifiedBadgeInjector() {
             if (usernameLine?.textContent?.includes(`@${username}`) && name) addBadge(name, color);
           });
 
-          // Signed-in user's profile page.
-          document.querySelectorAll(".profile-username").forEach((usernameNode) => {
-            if (usernameNode.textContent?.trim() !== `@${username}`) return;
-            const name = usernameNode.previousElementSibling;
+          const ownProfileUsername = document.querySelector(".profile-username");
+          if (ownProfileUsername?.textContent?.trim() === `@${username}`) {
+            const name = ownProfileUsername.previousElementSibling;
             if (name) addBadge(name, color);
-          });
-
-          // Public profile page. Its header is .profile-card > h1 followed by
-          // .profile-card > p containing the @username.
-          document.querySelectorAll(".profile-card").forEach((card) => {
-            const name = card.querySelector(":scope > h1");
-            const usernameNode = card.querySelector(":scope > h1 + p");
-            if (name && usernameNode?.textContent?.trim() === `@${username}`) {
-              addBadge(name, color);
-            }
-          });
+          }
         });
       };
 
       apply();
-      const observer = new MutationObserver(apply);
+      const observer = new MutationObserver(() => apply());
       observer.observe(document.body, { childList: true, subtree: true });
       return () => observer.disconnect();
     }
