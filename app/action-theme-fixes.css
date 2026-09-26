@@ -17,7 +17,6 @@
   color: #7c3aed !important;
 }
 
-/* Counts never inherit the purple selected state. */
 .actions button.liked .action-count,
 .actions button.saved-action .action-count,
 .actions .action-count {
@@ -41,4 +40,52 @@ html[data-theme="dark"] .actions button.liked .action-count,
 html[data-theme="dark"] .actions button.saved-action .action-count,
 html[data-theme="dark"] .actions .action-count {
   color: #aaa4b1 !important;
+}
+
+/* Final state-based override: theme.css previously forced Like and Save
+   purple by position, which made inactive icons purple too. */
+.actions button:nth-child(1):not(.liked),
+.actions button:nth-child(1):not(.liked) .action-icon,
+.actions button:nth-child(4):not(.saved-action),
+.actions button:nth-child(4):not(.saved-action) .action-icon {
+  color: #77727f !important;
+}
+
+.actions button:nth-child(1).liked .action-icon,
+.actions button:nth-child(4).saved-action .action-icon {
+  color: #7c3aed !important;
+}
+
+.actions button:nth-child(1) .action-count,
+.actions button:nth-child(4) .action-count {
+  color: #77727f !important;
+}
+
+.actions button:nth-child(2),
+.actions button:nth-child(2) svg,
+.actions button:nth-child(3),
+.actions button:nth-child(3) svg,
+.actions .feed-action-link:nth-child(2),
+.actions .feed-action-link:nth-child(2) svg {
+  color: #77727f !important;
+}
+
+html[data-theme="dark"] .actions button:nth-child(1):not(.liked),
+html[data-theme="dark"] .actions button:nth-child(1):not(.liked) .action-icon,
+html[data-theme="dark"] .actions button:nth-child(4):not(.saved-action),
+html[data-theme="dark"] .actions button:nth-child(4):not(.saved-action) .action-icon,
+html[data-theme="dark"] .actions button:nth-child(1) .action-count,
+html[data-theme="dark"] .actions button:nth-child(4) .action-count,
+html[data-theme="dark"] .actions button:nth-child(2),
+html[data-theme="dark"] .actions button:nth-child(2) svg,
+html[data-theme="dark"] .actions button:nth-child(3),
+html[data-theme="dark"] .actions button:nth-child(3) svg,
+html[data-theme="dark"] .actions .feed-action-link:nth-child(2),
+html[data-theme="dark"] .actions .feed-action-link:nth-child(2) svg {
+  color: #aaa4b1 !important;
+}
+
+html[data-theme="dark"] .actions button:nth-child(1).liked .action-icon,
+html[data-theme="dark"] .actions button:nth-child(4).saved-action .action-icon {
+  color: #7c3aed !important;
 }
