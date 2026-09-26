@@ -172,3 +172,49 @@ html[data-theme="dark"] .theme-note {
 .theme-check{position:absolute;right:7px;top:7px;width:18px;height:18px;border-radius:50%;background:#7c3aed;color:#fff;display:grid;place-items:center;font-size:11px}
 .theme-note{margin:12px 0 0;color:#77727f;font-size:12px}
 @media(max-width:480px){.theme-options{gap:7px}.theme-option{min-height:78px;padding:10px 5px;font-size:11px}}
+
+/* Dark-mode readability: profile counts and labels must always remain visible. */
+html[data-theme="dark"] .profile-stats strong,
+html[data-theme="dark"] .profile-stats b {
+  color:#f7f5fa !important;
+  opacity:1 !important;
+  visibility:visible !important;
+}
+
+html[data-theme="dark"] .profile-stats > a,
+html[data-theme="dark"] .profile-stats > span {
+  color:#aaa4b1 !important;
+  opacity:1 !important;
+  visibility:visible !important;
+}
+
+/* Like and Save stay Gista purple; Response and Share stay neutral gray. */
+.actions button:nth-child(1),
+.actions button:nth-child(1) svg,
+.actions button:nth-child(4),
+.actions button:nth-child(4) svg {
+  color:#7c3aed !important;
+}
+
+.actions button:nth-child(2),
+.actions button:nth-child(2) svg,
+.actions button:nth-child(3),
+.actions button:nth-child(3) svg,
+.actions .feed-action-link:nth-child(2) {
+  color:#77727f !important;
+}
+
+html[data-theme="dark"] .actions button:nth-child(2),
+html[data-theme="dark"] .actions button:nth-child(2) svg,
+html[data-theme="dark"] .actions button:nth-child(3),
+html[data-theme="dark"] .actions button:nth-child(3) svg,
+html[data-theme="dark"] .actions .feed-action-link:nth-child(2) {
+  color:#aaa4b1 !important;
+}
+
+html[data-theme="dark"] .actions button:nth-child(1),
+html[data-theme="dark"] .actions button:nth-child(1) svg,
+html[data-theme="dark"] .actions button:nth-child(4),
+html[data-theme="dark"] .actions button:nth-child(4) svg {
+  color:#7c3aed !important;
+}
