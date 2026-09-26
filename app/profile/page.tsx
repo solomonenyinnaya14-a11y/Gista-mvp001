@@ -53,29 +53,134 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
 
   async function loadProfile() {
-  setError("");
-  const { data: { session } } = await supabase.auth.getSession();
-  const user = session?.user ?? null;
-  if (!user) { router.replace("/auth"); return; }
-  const profilePromise = supabase.from("profiles").select(PROFILE_SELECT).eq("id", user.id).maybeSingle();
-  const statsPromise = supabase.rpc("get_profile_stats", { target_profile_id: user.id });
-  const gistsPromise = supabase.from("posts").select("id,content_type,body,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", user.id).order("created_at", { ascending: false }).limit(12);
-  let { data, error: profileError } = await profilePromise;
-  if (!data && !profileError) { const { data: created, error: createError } = await supabase.from("profiles").insert({ id: user.id, display_name: "", username: null, bio: "" }).select(PROFILE_SELECT).single(); data = created; profileError = createError; }
-  if (profileError || !data) { setError(profileError?.message ?? "We couldn't load your profile."); setLoading(false); return; }
-  setProfile(data as Profile);setDisplayName(data.display_name ?? "");setUsername(data.username ?? "");setBio(data.bio ?? "");setLoading(false);
-  const [{ data: statsData }, { data: ownGistsData }] = await Promise.all([statsPromise, gistsPromise]);
-  const profileStats = statsData?.[0] as { gists?: number; followers?: number; following?: number } | undefined;
-  const ownGists = (ownGistsData ?? []) as Array<Omit<Gist, "likes" | "responses" | "liked" | "saved">>;
-  const postIds = ownGists.map((gist) => gist.id);
-  let likeRows: Array<{ post_id: string; user_id: string }> = [];let responseRows: Array<{ post_id: string }> = [];let saveRows: Array<{ post_id: string }> = [];
-  if (postIds.length) { const [likesResult, responsesResult, savesResult] = await Promise.all([supabase.from("likes").select("post_id,user_id").in("post_id", postIds),supabase.from("responses").select("post_id").in("post_id", postIds),supabase.from("saves").select("post_id").eq("user_id", user.id).in("post_id", postIds)]);likeRows=(likesResult.data??[]) as Array<{post_id:string;user_id:string}>;responseRows=(responsesResult.data??[]) as Array<{post_id:string}>;saveRows=(savesResult.data??[]) as Array<{post_id:string}>;}
-  const likeCounts=Object.fromEntries(postIds.map((id)=>[id,0]));const responseCounts=Object.fromEntries(postIds.map((id)=>[id,0]));likeRows.forEach((row)=>{likeCounts[row.post_id]=(likeCounts[row.post_id]??0)+1});responseRows.forEach((row)=>{responseCounts[row.post_id]=(responseCounts[row.post_id]??0)+1});
-  const liked=new Set(likeRows.filter((row)=>row.user_id===user.id).map((row)=>row.post_id));const saved=new Set(saveRows.map((row)=>row.post_id));
-  setStats({gists:Number(profileStats?.gists??0),followers:Number(profileStats?.followers??0),following:Number(profileStats?.following??0)});
-  setGists(ownGists.map((gist)=>{const likes=likeCounts[gist.id]??0;const responses=responseCounts[gist.id]??0;const status=likes>0||responses>0?(gist.status??"growing"):null;return {...gist,status,likes,responses,liked:liked.has(gist.id),saved:saved.has(gist.id)}}));
-}
-  useEffect(() => { void loadProfile(); }, [supabase]);
+    setError("");
+
+    // getSession() is local and lets the page establish the user immediately.
+    // The profile and secondary data are fetched in parallel so profile
+    // navigation never waits on stats/likes/responses before rendering.
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user ?? null;
+
+    if (!user) {
+      router.replace("/auth");
+      return;
+    }
+
+    const fallbackName = user.email?.split("@")[0] ?? "Gista User";
+    setDisplayName((current) => current || fallbackName);
+    setLoading(false);
+
+    const profilePromise = supabase
+      .from("profiles")
+      .select(PROFILE_SELECT)
+      .eq("id", user.id)
+      .maybeSingle();
+    const statsPromise = supabase.rpc("get_profile_stats", {
+      target_profile_id: user.id,
+    });
+    const gistsPromise = supabase
+      .from("posts")
+      .select(
+        "id,content_type,body,media_url,category,status,created_at,voice_duration_seconds"
+      )
+      .eq("author_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(12);
+
+    const [{ data, error: profileError }, { data: statsData }, { data: ownGistsData }] =
+      await Promise.all([profilePromise, statsPromise, gistsPromise]);
+
+    if (!data && !profileError) {
+      const { data: created, error: createError } = await supabase
+        .from("profiles")
+        .insert({ id: user.id, display_name: fallbackName, username: null, bio: "" })
+        .select(PROFILE_SELECT)
+        .single();
+      if (createError) {
+        setError(createError.message);
+      } else if (created) {
+        setProfile(created as Profile);
+        setDisplayName(created.display_name ?? fallbackName);
+        setUsername(created.username ?? "");
+        setBio(created.bio ?? "");
+      }
+    } else if (profileError) {
+      setError(profileError.message);
+    } else if (data) {
+      setProfile(data as Profile);
+      setDisplayName(data.display_name ?? fallbackName);
+      setUsername(data.username ?? "");
+      setBio(data.bio ?? "");
+    }
+
+    const profileStats = statsData?.[0] as
+      | { gists?: number; followers?: number; following?: number }
+      | undefined;
+    setStats({
+      gists: Number(profileStats?.gists ?? 0),
+      followers: Number(profileStats?.followers ?? 0),
+      following: Number(profileStats?.following ?? 0),
+    });
+
+    const ownGists = (ownGistsData ?? []) as Array<
+      Omit<Gist, "likes" | "responses" | "liked" | "saved">
+    >;
+    const postIds = ownGists.map((gist) => gist.id);
+    let likeRows: Array<{ post_id: string; user_id: string }> = [];
+    let responseRows: Array<{ post_id: string }> = [];
+    let saveRows: Array<{ post_id: string }> = [];
+
+    if (postIds.length) {
+      const [likesResult, responsesResult, savesResult] = await Promise.all([
+        supabase.from("likes").select("post_id,user_id").in("post_id", postIds),
+        supabase.from("responses").select("post_id").in("post_id", postIds),
+        supabase
+          .from("saves")
+          .select("post_id")
+          .eq("user_id", user.id)
+          .in("post_id", postIds),
+      ]);
+      likeRows = (likesResult.data ?? []) as Array<{ post_id: string; user_id: string }>;
+      responseRows = (responsesResult.data ?? []) as Array<{ post_id: string }>;
+      saveRows = (savesResult.data ?? []) as Array<{ post_id: string }>;
+    }
+
+    const likeCounts = Object.fromEntries(postIds.map((id) => [id, 0]));
+    const responseCounts = Object.fromEntries(postIds.map((id) => [id, 0]));
+    likeRows.forEach((row) => {
+      likeCounts[row.post_id] = (likeCounts[row.post_id] ?? 0) + 1;
+    });
+    responseRows.forEach((row) => {
+      responseCounts[row.post_id] = (responseCounts[row.post_id] ?? 0) + 1;
+    });
+
+    const liked = new Set(
+      likeRows.filter((row) => row.user_id === user.id).map((row) => row.post_id)
+    );
+    const saved = new Set(saveRows.map((row) => row.post_id));
+
+    setGists(
+      ownGists.map((gist) => {
+        const likes = likeCounts[gist.id] ?? 0;
+        const responses = responseCounts[gist.id] ?? 0;
+        const status = likes > 0 || responses > 0 ? gist.status ?? "growing" : null;
+        return {
+          ...gist,
+          status,
+          likes,
+          responses,
+          liked: liked.has(gist.id),
+          saved: saved.has(gist.id),
+        };
+      })
+    );
+  }
+
+  useEffect(() => {
+    void loadProfile();
+  }, [supabase]);
 
   async function uploadProfileMedia(file: File, kind: "avatar" | "cover") {
     setError("");
@@ -92,10 +197,15 @@ export default function ProfilePage() {
       return;
     }
 
-    if (kind === "avatar") setAvatarUploading(true); else setCoverUploading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    if (kind === "avatar") setAvatarUploading(true);
+    else setCoverUploading(true);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
-      if (kind === "avatar") setAvatarUploading(false); else setCoverUploading(false);
+      if (kind === "avatar") setAvatarUploading(false);
+      else setCoverUploading(false);
       router.replace("/auth");
       return;
     }
@@ -111,7 +221,8 @@ export default function ProfilePage() {
 
     if (upload.error) {
       setError(upload.error.message);
-      if (kind === "avatar") setAvatarUploading(false); else setCoverUploading(false);
+      if (kind === "avatar") setAvatarUploading(false);
+      else setCoverUploading(false);
       return;
     }
 
@@ -132,7 +243,8 @@ export default function ProfilePage() {
       setMessage(kind === "avatar" ? "Profile photo updated." : "Cover photo updated.");
     }
 
-    if (kind === "avatar") setAvatarUploading(false); else setCoverUploading(false);
+    if (kind === "avatar") setAvatarUploading(false);
+    else setCoverUploading(false);
   }
 
   async function saveProfile() {
@@ -150,7 +262,9 @@ export default function ProfilePage() {
     if (cleanBio.length > 160) return setError("Bio must be 160 characters or fewer.");
 
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) {
       setSaving(false);
       router.replace("/auth");
@@ -159,17 +273,17 @@ export default function ProfilePage() {
 
     const { data: updated, error: updateError } = await supabase
       .from("profiles")
-      .update({
-        display_name: cleanName,
-        username: cleanUsername || null,
-        bio: cleanBio,
-      })
+      .update({ display_name: cleanName, username: cleanUsername || null, bio: cleanBio })
       .eq("id", user.id)
       .select(PROFILE_SELECT)
       .single();
 
     if (updateError || !updated) {
-      setError(updateError?.code === "23505" ? "That username is already taken." : updateError?.message ?? "Profile could not be saved.");
+      setError(
+        updateError?.code === "23505"
+          ? "That username is already taken."
+          : updateError?.message ?? "Profile could not be saved."
+      );
       setSaving(false);
       return;
     }
@@ -184,48 +298,62 @@ export default function ProfilePage() {
   }
 
   async function toggleLike(gist: Gist) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return router.replace("/auth");
     setBusy(gist.id + "l");
     const result = gist.liked
       ? await supabase.from("likes").delete().eq("post_id", gist.id).eq("user_id", user.id)
       : await supabase.from("likes").insert({ post_id: gist.id, user_id: user.id });
     if (!result.error) {
-      setGists((current) => current.map((item) => item.id === gist.id
-        ? {
-            ...item,
-            liked: !item.liked,
-            likes: item.likes + (item.liked ? -1 : 1),
-            status: item.liked && item.likes <= 1 && item.responses === 0 ? null : item.status ?? "growing",
-          }
-        : item));
+      setGists((current) =>
+        current.map((item) =>
+          item.id === gist.id
+            ? {
+                ...item,
+                liked: !item.liked,
+                likes: item.likes + (item.liked ? -1 : 1),
+                status:
+                  item.liked && item.likes <= 1 && item.responses === 0
+                    ? null
+                    : item.status ?? "growing",
+              }
+            : item
+        )
+      );
     }
     setBusy(null);
   }
 
   async function toggleSave(gist: Gist) {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return router.replace("/auth");
     setBusy(gist.id + "s");
     const result = gist.saved
       ? await supabase.from("saves").delete().eq("post_id", gist.id).eq("user_id", user.id)
       : await supabase.from("saves").insert({ post_id: gist.id, user_id: user.id });
     if (!result.error) {
-      setGists((current) => current.map((item) => item.id === gist.id ? { ...item, saved: !item.saved } : item));
+      setGists((current) =>
+        current.map((item) =>
+          item.id === gist.id ? { ...item, saved: !item.saved } : item
+        )
+      );
     }
     setBusy(null);
   }
 
   function shareGist(gist: Gist) {
     const url = window.location.origin + "/gist/" + gist.id;
-    if (navigator.share) void navigator.share({ title: "Gista", text: gist.body ?? "Join this Gist on Gista", url });
+    if (navigator.share)
+      void navigator.share({ title: "Gista", text: gist.body ?? "Join this Gist on Gista", url });
     else void navigator.clipboard.writeText(url);
   }
 
-  if (loading) return <main className="profile-page"><div className="profile-loading">Loading your profile…</div></main>;
-
-  const initials = profile?.display_name?.trim()?.[0]?.toUpperCase() ?? "G";
-  const profileUsername = profile?.username ?? "";
+  const initials = (profile?.display_name ?? displayName).trim()?.[0]?.toUpperCase() ?? "G";
+  const profileUsername = profile?.username ?? username ?? "";
   const publicProfileHref = profileUsername ? "/profile/" + profileUsername : "/profile";
 
   return (
@@ -256,7 +384,7 @@ export default function ProfilePage() {
             </label>
           </div>
 
-          {profile?.display_name && <h1>{profile.display_name}</h1>}
+          <h1>{profile?.display_name || displayName || "Gista User"}</h1>
           {profileUsername && <p className="profile-username">@{profileUsername}</p>}
           {profile?.bio && <p className="profile-bio">{profile.bio}</p>}
 
@@ -273,9 +401,9 @@ export default function ProfilePage() {
             <Link className="profile-secondary" href="/saved">Saved</Link>
           </div>
 
-          {(avatarUploading || coverUploading || message || error) && (
+          {(loading || avatarUploading || coverUploading || message || error) && (
             <div className={error ? "profile-feedback error" : "profile-feedback"}>
-              {avatarUploading ? "Uploading profile photo…" : coverUploading ? "Uploading cover photo…" : message || error}
+              {loading ? "Loading profile details…" : avatarUploading ? "Uploading profile photo…" : coverUploading ? "Uploading cover photo…" : message || error}
             </div>
           )}
         </section>
@@ -317,13 +445,13 @@ export default function ProfilePage() {
                       {profile?.avatar_url ? <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
                     </div>
                     <div className="identity">
-                      <strong>{profile?.display_name || "Gista User"}</strong>
+                      <strong>{profile?.display_name || displayName || "Gista User"}</strong>
                       <span>@{profileUsername || "user"} · {new Date(gist.created_at).toLocaleString()}</span>
                     </div>
                     <span className="category">{gist.category}</span>
                   </div>
 
-                  <Link className="profile-gist-content" href={"/gist/" + gist.id}>{gist.body && <p>{gist.body}</p>}{gist.content_type === "photo" && gist.media_url && <img src={gist.media_url} alt="Gist" />}</Link>
+                  <Link className="profile-gist-content" href={"/gist/" + gist.id}>{gist.body && <p>{gist.body}</p>}{gist.content_type === "photo" && gist.media_url && <img src={gist.media_url} alt="Gist" loading="lazy" />}</Link>
                   {gist.content_type === "voice" && gist.media_url && <div className="profile-gist-voice"><VoiceNote src={gist.media_url} durationHint={gist.voice_duration_seconds} /></div>}
 
                   {gist.status && (
