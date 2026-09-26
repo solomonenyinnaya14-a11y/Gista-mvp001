@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import VoiceNote from "@/components/VoiceNote";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 type Profile = {
   id: string;
@@ -38,6 +39,7 @@ export default function PublicProfile() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [me, setMe] = useState<{ id: string } | null>(null);
   const [following, setFollowing] = useState(false);
+  const [verifiedColor, setVerifiedColor] = useState<string | null>(null);
   const [counts, setCounts] = useState({ gists: 0, followers: 0, following: 0 });
   const [gists, setGists] = useState<PublicPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,22 +59,25 @@ export default function PublicProfile() {
 
     if (error || !data) {
       setProfile(null);
+      setVerifiedColor(null);
       setLoading(false);
       return;
     }
 
-    const [followState, statsResult, postsResult] = await Promise.all([
+    const [followState, statsResult, postsResult, verificationResult] = await Promise.all([
       user
         ? supabase.from("follows").select("follower_id").eq("follower_id", user.id).eq("following_id", data.id).maybeSingle()
         : Promise.resolve({ data: null }),
       supabase.rpc("get_profile_stats", { target_profile_id: data.id }),
       supabase.from("posts").select("id,body,content_type,media_url,category,created_at,voice_duration_seconds").eq("author_id", data.id).order("created_at", { ascending: false }).limit(30),
+      supabase.from("verified_profiles").select("badge_color").eq("profile_id", data.id).maybeSingle(),
     ]);
 
     const profileStats = statsResult.data?.[0] as { gists?: number; followers?: number; following?: number } | undefined;
     const isFollowing = !!followState.data;
 
     setProfile(data as Profile);
+    setVerifiedColor(verificationResult.data?.badge_color ?? null);
     setFollowing(isFollowing);
     setCounts({
       gists: Number(profileStats?.gists ?? 0),
@@ -213,7 +218,10 @@ export default function PublicProfile() {
             ? <img src={profile.avatar_url} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
             : (profile.display_name?.[0]?.toUpperCase() ?? "G")}
         </div>
-        <h1>{profile.display_name ?? "Gista User"}</h1>
+        <h1>
+          {profile.display_name ?? "Gista User"}
+          {verifiedColor && <VerifiedBadge />}
+        </h1>
         <p>@{profile.username}</p>
         {profile.bio && <p className="bio">{profile.bio}</p>}
 
