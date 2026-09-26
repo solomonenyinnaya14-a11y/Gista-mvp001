@@ -11,6 +11,13 @@ export async function middleware(request:NextRequest){
  const {data:{user}}=await supabase.auth.getUser();
  const pathname=request.nextUrl.pathname;
  const protectedPaths=["/create","/profile","/settings","/notifications","/saved"];
+
+ if(!user && pathname.startsWith("/gist/")){
+  const authUrl=new URL("/auth",request.url);
+  authUrl.searchParams.set("returnTo",`${pathname}${request.nextUrl.search}${request.nextUrl.hash}`);
+  return NextResponse.redirect(authUrl);
+ }
+
  if(!user && protectedPaths.some(p=>pathname.startsWith(p))) return NextResponse.redirect(new URL("/auth",request.url));
  if(user && pathname==="/auth") return NextResponse.redirect(new URL("/",request.url));
  return response;
