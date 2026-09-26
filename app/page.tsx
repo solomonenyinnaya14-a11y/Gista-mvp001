@@ -131,10 +131,6 @@ export default function HomePage() {
         return;
       }
 
-      // The feed used to make several sequential client-side queries for
-      // posts, blocks, follows, profiles, likes, responses and saves.
-      // Keep that work in one RLS-scoped database call so the UI can start
-      // rendering as soon as the feed data is ready.
       const { data, error } = await supabase.rpc("get_fast_home_feed", {
         p_tab: tab,
         p_limit: tab === "Following" ? 20 : 12,
@@ -539,10 +535,12 @@ export default function HomePage() {
                     disabled={busy === post.id + "l"}
                     aria-label="Like Gist"
                   >
-                    <Heart size={18} fill={post.liked ? "currentColor" : "none"} /> {post.likes}
+                    <Heart className="action-icon" size={18} fill={post.liked ? "currentColor" : "none"} />
+                    <span className="action-count">{post.likes}</span>
                   </button>
                   <Link className="feed-action-link" href={"/gist/" + post.id}>
-                    <MessageCircle size={18} /> {post.responses}
+                    <MessageCircle className="action-icon" size={18} />
+                    <span className="action-count">{post.responses}</span>
                   </Link>
                   <button
                     type="button"
@@ -550,7 +548,8 @@ export default function HomePage() {
                     onClick={() => void sharePost(post)}
                     aria-label="Share Gist"
                   >
-                    <Share2 size={18} /> {post.shares}
+                    <Share2 className="action-icon" size={18} />
+                    <span className="action-count">{post.shares}</span>
                   </button>
                   <button
                     type="button"
@@ -559,7 +558,8 @@ export default function HomePage() {
                     disabled={busy === post.id + "s"}
                     aria-label="Save Gist"
                   >
-                    <Bookmark size={18} fill={post.saved ? "currentColor" : "none"} /> {post.saves}
+                    <Bookmark className="action-icon" size={18} fill={post.saved ? "currentColor" : "none"} />
+                    <span className="action-count">{post.saves}</span>
                   </button>
                 </div>
               </article>
