@@ -63,6 +63,15 @@ export default function PublicProfile() {
       return;
     }
 
+    // The account owner's profile must always use the dedicated private
+    // profile page so they retain owner-only controls such as Edit profile,
+    // profile/cover photo editing, Saved, Settings, and Log out. The dynamic
+    // /profile/[username] route is for viewing other people's profiles.
+    if (user?.id === data.id) {
+      router.replace("/profile");
+      return;
+    }
+
     const [followState, statsResult, postsResult] = await Promise.all([
       user
         ? supabase.from("follows").select("follower_id").eq("follower_id", user.id).eq("following_id", data.id).maybeSingle()
