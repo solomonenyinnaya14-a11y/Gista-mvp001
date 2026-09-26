@@ -141,8 +141,8 @@ export default function NotificationsPage() {
                   <div className="identity notification-identity">
                     <strong className="notification-message">
                       <span className="notification-actor-name">{actorName}</span>
-                      {item.actorVerified && <span title="Verified account" aria-label="Verified account" className="notification-verified-badge"><Check size={11} strokeWidth={3} /></span>}
-                      <span className="notification-action"> {action}</span>
+                      {item.actorVerified && <span title="Verified account" aria-label="Verified account" className="notification-verified-badge" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, marginLeft: 6, marginRight: 4, borderRadius: "50%", background: "#6D28D9", color: "#fff", verticalAlign: "-3px", flex: "0 0 auto" }}><Check size={11} strokeWidth={3} /></span>}
+                      <span className="notification-action">{action}</span>
                     </strong>
                     <span>{new Date(item.created_at).toLocaleString()}</span>
                   </div>
