@@ -53,105 +53,28 @@ export default function ProfilePage() {
   const [error, setError] = useState("");
 
   async function loadProfile() {
-    setLoading(true);
-    setError("");
-
-    const { data: { session } } = await supabase.auth.getSession();
-    const user = session?.user ?? null;
-    if (!user) {
-      router.replace("/auth");
-      return;
-    }
-
-    let { data, error: profileError } = await supabase
-      .from("profiles")
-      .select(PROFILE_SELECT)
-      .eq("id", user.id)
-      .maybeSingle();
-
-    // New accounts are normally created by the database trigger. Keep this as
-    // a safe fallback, but never manufacture a default identity.
-    if (!data && !profileError) {
-      const { data: created, error: createError } = await supabase
-        .from("profiles")
-        .insert({ id: user.id, display_name: "", username: null, bio: "" })
-        .select(PROFILE_SELECT)
-        .single();
-      data = created;
-      profileError = createError;
-    }
-
-    if (profileError || !data) {
-      setError(profileError?.message ?? "We couldn't load your profile.");
-      setLoading(false);
-      return;
-    }
-
-    const [statsResult, ownGistsResult] = await Promise.all([
-      supabase.rpc("get_profile_stats", { target_profile_id: user.id }),
-      supabase
-        .from("posts")
-        .select("id,content_type,body,media_url,category,status,created_at,voice_duration_seconds")
-        .eq("author_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(30),
-    ]);
-
-    const profileStats = statsResult.data?.[0] as { gists?: number; followers?: number; following?: number } | undefined;
-    const ownGists = (ownGistsResult.data ?? []) as Array<Omit<Gist, "likes" | "responses" | "liked" | "saved">>;
-    const postIds = ownGists.map((gist) => gist.id);
-
-    let likeRows: Array<{ post_id: string; user_id: string }> = [];
-    let responseRows: Array<{ post_id: string }> = [];
-    let saveRows: Array<{ post_id: string }> = [];
-
-    if (postIds.length) {
-      const [likesResult, responsesResult, savesResult] = await Promise.all([
-        supabase.from("likes").select("post_id,user_id").in("post_id", postIds),
-        supabase.from("responses").select("post_id").in("post_id", postIds),
-        supabase.from("saves").select("post_id").eq("user_id", user.id).in("post_id", postIds),
-      ]);
-      likeRows = (likesResult.data ?? []) as Array<{ post_id: string; user_id: string }>;
-      responseRows = (responsesResult.data ?? []) as Array<{ post_id: string }>;
-      saveRows = (savesResult.data ?? []) as Array<{ post_id: string }>;
-    }
-
-    const likeCounts = Object.fromEntries(postIds.map((id) => [id, 0]));
-    const responseCounts = Object.fromEntries(postIds.map((id) => [id, 0]));
-    likeRows.forEach((row) => { likeCounts[row.post_id] = (likeCounts[row.post_id] ?? 0) + 1; });
-    responseRows.forEach((row) => { responseCounts[row.post_id] = (responseCounts[row.post_id] ?? 0) + 1; });
-
-    const liked = new Set(likeRows.filter((row) => row.user_id === user.id).map((row) => row.post_id));
-    const saved = new Set(saveRows.map((row) => row.post_id));
-
-    setProfile(data as Profile);
-    setDisplayName(data.display_name ?? "");
-    setUsername(data.username ?? "");
-    setBio(data.bio ?? "");
-    setStats({
-      gists: Number(profileStats?.gists ?? 0),
-      followers: Number(profileStats?.followers ?? 0),
-      following: Number(profileStats?.following ?? 0),
-    });
-    setGists(ownGists.map((gist) => {
-      const likes = likeCounts[gist.id] ?? 0;
-      const responses = responseCounts[gist.id] ?? 0;
-      const hasEngagement = likes > 0 || responses > 0;
-      // MVP rule: no engagement = no status; any engagement = Growing unless
-      // the stored status has already advanced to Active or Trending.
-      const status = hasEngagement ? (gist.status ?? "growing") : null;
-      return {
-        ...gist,
-        status,
-        likes,
-        responses,
-        liked: liked.has(gist.id),
-        saved: saved.has(gist.id),
-      };
-    }));
-    setLoading(false);
-  }
-
+  setError("");
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
+  if (!user) { router.replace("/auth"); return; }
+  const profilePromise = supabase.from("profiles").select(PROFILE_SELECT).eq("id", user.id).maybeSingle();
+  const statsPromise = supabase.rpc("get_profile_stats", { target_profile_id: user.id });
+  const gistsPromise = supabase.from("posts").select("id,content_type,body,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", user.id).order("created_at", { ascending: false }).limit(12);
+  let { data, error: profileError } = await profilePromise;
+  if (!data && !profileError) { const { data: created, error: createError } = await supabase.from("profiles").insert({ id: user.id, display_name: "", username: null, bio: "" }).select(PROFILE_SELECT).single(); data = created; profileError = createError; }
+  if (profileError || !data) { setError(profileError?.message ?? "We couldn't load your profile."); setLoading(false); return; }
+  setProfile(data as Profile);setDisplayName(data.display_name ?? "");setUsername(data.username ?? "");setBio(data.bio ?? "");setLoading(false);
+  const [{ data: statsData }, { data: ownGistsData }] = await Promise.all([statsPromise, gistsPromise]);
+  const profileStats = statsData?.[0] as { gists?: number; followers?: number; following?: number } | undefined;
+  const ownGists = (ownGistsData ?? []) as Array<Omit<Gist, "likes" | "responses" | "liked" | "saved">>;
+  const postIds = ownGists.map((gist) => gist.id);
+  let likeRows: Array<{ post_id: string; user_id: string }> = [];let responseRows: Array<{ post_id: string }> = [];let saveRows: Array<{ post_id: string }> = [];
+  if (postIds.length) { const [likesResult, responsesResult, savesResult] = await Promise.all([supabase.from("likes").select("post_id,user_id").in("post_id", postIds),supabase.from("responses").select("post_id").in("post_id", postIds),supabase.from("saves").select("post_id").eq("user_id", user.id).in("post_id", postIds)]);likeRows=(likesResult.data??[]) as Array<{post_id:string;user_id:string}>;responseRows=(responsesResult.data??[]) as Array<{post_id:string}>;saveRows=(savesResult.data??[]) as Array<{post_id:string}>;}
+  const likeCounts=Object.fromEntries(postIds.map((id)=>[id,0]));const responseCounts=Object.fromEntries(postIds.map((id)=>[id,0]));likeRows.forEach((row)=>{likeCounts[row.post_id]=(likeCounts[row.post_id]??0)+1});responseRows.forEach((row)=>{responseCounts[row.post_id]=(responseCounts[row.post_id]??0)+1});
+  const liked=new Set(likeRows.filter((row)=>row.user_id===user.id).map((row)=>row.post_id));const saved=new Set(saveRows.map((row)=>row.post_id));
+  setStats({gists:Number(profileStats?.gists??0),followers:Number(profileStats?.followers??0),following:Number(profileStats?.following??0)});
+  setGists(ownGists.map((gist)=>{const likes=likeCounts[gist.id]??0;const responses=responseCounts[gist.id]??0;const status=likes>0||responses>0?(gist.status??"growing"):null;return {...gist,status,likes,responses,liked:liked.has(gist.id),saved:saved.has(gist.id)}}));
+}
   useEffect(() => { void loadProfile(); }, [supabase]);
 
   async function uploadProfileMedia(file: File, kind: "avatar" | "cover") {
