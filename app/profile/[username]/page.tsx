@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import VoiceNote from "@/components/VoiceNote";
-import VerifiedBadge from "@/components/VerifiedBadge";
 
 type Profile = {
   id: string;
@@ -39,7 +38,7 @@ export default function PublicProfile() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [me, setMe] = useState<{ id: string } | null>(null);
   const [following, setFollowing] = useState(false);
-  const [verifiedColor, setVerifiedColor] = useState<string | null>(null);
+  const [isVerified, setIsVerified] = useState(false);
   const [counts, setCounts] = useState({ gists: 0, followers: 0, following: 0 });
   const [gists, setGists] = useState<PublicPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,25 +58,30 @@ export default function PublicProfile() {
 
     if (error || !data) {
       setProfile(null);
-      setVerifiedColor(null);
+      setIsVerified(false);
       setLoading(false);
       return;
     }
 
-    const [followState, statsResult, postsResult, verificationResult] = await Promise.all([
+    const [followState, statsResult, postsResult] = await Promise.all([
       user
         ? supabase.from("follows").select("follower_id").eq("follower_id", user.id).eq("following_id", data.id).maybeSingle()
         : Promise.resolve({ data: null }),
       supabase.rpc("get_profile_stats", { target_profile_id: data.id }),
       supabase.from("posts").select("id,body,content_type,media_url,category,created_at,voice_duration_seconds").eq("author_id", data.id).order("created_at", { ascending: false }).limit(30),
-      supabase.from("verified_profiles").select("badge_color").eq("profile_id", data.id).maybeSingle(),
     ]);
+
+    const { data: verification } = await supabase
+      .from("verified_profiles")
+      .select("profile_id")
+      .eq("profile_id", data.id)
+      .maybeSingle();
 
     const profileStats = statsResult.data?.[0] as { gists?: number; followers?: number; following?: number } | undefined;
     const isFollowing = !!followState.data;
 
     setProfile(data as Profile);
-    setVerifiedColor(verificationResult.data?.badge_color ?? null);
+    setIsVerified(!!verification);
     setFollowing(isFollowing);
     setCounts({
       gists: Number(profileStats?.gists ?? 0),
@@ -220,7 +224,9 @@ export default function PublicProfile() {
         </div>
         <h1>
           {profile.display_name ?? "Gista User"}
-          {verifiedColor && <VerifiedBadge />}
+          {isVerified && (
+            <span title="Verified account" aria-label="Verified account" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 20, height: 20, marginLeft: 6, borderRadius: "50%", background: "#6D28D9", color: "#fff", fontSize: 12, fontWeight: 800, lineHeight: 1, verticalAlign: "middle" }}>✓</span>
+          )}
         </h1>
         <p>@{profile.username}</p>
         {profile.bio && <p className="bio">{profile.bio}</p>}
