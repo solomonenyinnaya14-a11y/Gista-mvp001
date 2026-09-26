@@ -23,6 +23,7 @@ type PublicPost = {
   content_type: string;
   media_url: string | null;
   category: string;
+  status: string | null;
   created_at: string;
   voice_duration_seconds: number | null;
   likes: number;
@@ -77,7 +78,7 @@ export default function PublicProfile() {
         ? supabase.from("follows").select("follower_id").eq("follower_id", user.id).eq("following_id", data.id).maybeSingle()
         : Promise.resolve({ data: null }),
       supabase.rpc("get_profile_stats", { target_profile_id: data.id }),
-      supabase.from("posts").select("id,body,content_type,media_url,category,created_at,voice_duration_seconds").eq("author_id", data.id).order("created_at", { ascending: false }).limit(30),
+      supabase.from("posts").select("id,body,content_type,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", data.id).order("created_at", { ascending: false }).limit(30),
     ]);
 
     const { data: verification } = await supabase
@@ -132,13 +133,21 @@ export default function PublicProfile() {
     const saved = new Set((savesResult.data ?? []).map((row: { post_id: string }) => row.post_id));
 
     setPrivateMessage("");
-    setGists(ownPosts.map((post) => ({
-      ...post,
-      likes: likeCounts[post.id] ?? 0,
-      responses: responseCounts[post.id] ?? 0,
-      liked: liked.has(post.id),
-      saved: saved.has(post.id),
-    })));
+    setGists(ownPosts.map((post) => {
+      const likes = likeCounts[post.id] ?? 0;
+      const responses = responseCounts[post.id] ?? 0;
+      // Keep profile status display consistent with the MVP rule: any real
+      // engagement makes a Gist Growing; no engagement means no status.
+      const status = post.status ?? (likes > 0 || responses > 0 ? "growing" : null);
+      return {
+        ...post,
+        status,
+        likes,
+        responses,
+        liked: liked.has(post.id),
+        saved: saved.has(post.id),
+      };
+    }));
     setLoading(false);
   }
 
@@ -278,6 +287,14 @@ export default function PublicProfile() {
 
               {post.content_type === "voice" && post.media_url && (
                 <div className="profile-gist-voice"><VoiceNote src={post.media_url} durationHint={post.voice_duration_seconds} /></div>
+              )}
+
+              {post.status && (
+                <div className="gist-status">
+                  <span className={post.status === "trending" ? "hot" : "dot"}>{post.status === "trending" ? "🔥" : "●"}</span>
+                  {post.status.charAt(0).toUpperCase() + post.status.slice(1)}
+                  <Link href={"/gist/" + post.id}>Gist DNA</Link>
+                </div>
               )}
 
               <div className="actions">
