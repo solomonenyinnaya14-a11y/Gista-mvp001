@@ -107,7 +107,7 @@ export default function PublicProfile() {
       return;
     }
 
-    const ownPosts = (postsResult.data ?? []) as Array<Omit<PublicPost, "likes" | "responses" | "liked" | "saved">>;
+    const ownPosts = (postsResult.data ?? []) as Array<Omit<PublicPost, "likes" | "responses" | "saves" | "liked" | "saved">>;
     const postIds = ownPosts.map((post) => post.id);
 
     if (!postIds.length) {

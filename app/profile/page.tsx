@@ -126,7 +126,7 @@ export default function ProfilePage() {
     });
 
     const ownGists = (ownGistsData ?? []) as Array<
-      Omit<Gist, "likes" | "responses" | "liked" | "saved">
+      Omit<Gist, "likes" | "responses" | "saves" | "liked" | "saved">
     >;
     const postIds = ownGists.map((gist) => gist.id);
     let likeRows: Array<{ post_id: string; user_id: string }> = [];
@@ -144,7 +144,7 @@ export default function ProfilePage() {
       ]);
       likeRows = (likesResult.data ?? []) as Array<{ post_id: string; user_id: string }>;
       responseRows = (responsesResult.data ?? []) as Array<{ post_id: string }>;
-      saveRows = (savesResult.data ?? []) as Array<{ post_id: string }>;
+      saveRows = (savesResult.data ?? []) as Array<{ post_id: string; user_id: string }>;
     }
 
     const likeCounts = Object.fromEntries(postIds.map((id) => [id, 0]));
