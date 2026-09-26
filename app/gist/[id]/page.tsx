@@ -66,6 +66,28 @@ export default function GistPage() {
     return `/auth?returnTo=${encodeURIComponent(destination)}`;
   }
 
+  function handleBack() {
+    if (typeof window === "undefined") return;
+
+    // A shared Gist opened directly from WhatsApp/social apps may have no
+    // useful in-app history entry. In that case, always return to Home.
+    const referrer = document.referrer;
+    let cameFromGista = false;
+    if (referrer) {
+      try {
+        cameFromGista = new URL(referrer).origin === window.location.origin;
+      } catch {
+        cameFromGista = false;
+      }
+    }
+
+    if (cameFromGista && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/");
+    }
+  }
+
   async function requireAuth() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -252,7 +274,7 @@ export default function GistPage() {
 
   return (
     <main className="content">
-      <button onClick={() => router.back()}>← Back</button>
+      <button type="button" onClick={handleBack}>← Back</button>
       <article className="post gist-detail-post">
         <div className="post-head"><button type="button" onClick={() => setMenu((value) => !value)} aria-label="More options">⋯</button><ProfileAvatar profile={post.profiles} /><div className="identity"><strong>{post.profiles?.display_name ?? "Gista User"}</strong><span>@{post.profiles?.username ?? "user"} · {new Date(post.created_at).toLocaleString()}</span></div><span className="category">{post.category}</span></div>
         {menu && <div className="action-menu">{userId === post.author_id ? <button className="danger" onClick={deleteGist}>Delete Gist</button> : <><button onClick={async () => { const reason = prompt("Why are you reporting this Gist?"); if (!reason || !userId) return; const result = await supabase.from("reports").insert({ reporter_id: userId, post_id: id, reason }); if (result.error) setError(result.error.message); else { setMenu(false); setError("Report submitted."); } }}>Report Gist</button><button onClick={async () => { const user = await requireAuth(); if (!user) return; const result = await supabase.from("blocks").insert({ blocker_id: user.id, blocked_id: post.author_id }); if (result.error) setError(result.error.message); else { setMenu(false); router.push("/"); } }}>Block author</button><button onClick={async () => { const user = await requireAuth(); if (!user) return; const result = await supabase.from("not_interested").insert({ user_id: user.id, post_id: id }); if (result.error && result.error.code !== "23505") setError(result.error.message); else { setMenu(false); router.push("/"); } }}>Not Interested</button></>}</div>}
