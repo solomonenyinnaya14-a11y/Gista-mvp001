@@ -29,6 +29,7 @@ type Gist = {
   likes: number;
   responses: number;
   saves: number;
+  shares: number;
   liked: boolean;
   saved: boolean;
 };
@@ -126,25 +127,31 @@ export default function ProfilePage() {
     });
 
     const ownGists = (ownGistsData ?? []) as Array<
-      Omit<Gist, "likes" | "responses" | "saves" | "liked" | "saved">
+      Omit<Gist, "likes" | "responses" | "saves" | "shares" | "liked" | "saved">
     >;
     const postIds = ownGists.map((gist) => gist.id);
     let likeRows: Array<{ post_id: string; user_id: string }> = [];
     let responseRows: Array<{ post_id: string }> = [];
     let saveRows: Array<{ post_id: string; user_id: string }> = [];
+    let engagementRows: Array<{ post_id: string; share_count: number | string }> = [];
 
     if (postIds.length) {
-      const [likesResult, responsesResult, savesResult] = await Promise.all([
+      const [likesResult, responsesResult, savesResult, engagementResult] = await Promise.all([
         supabase.from("likes").select("post_id,user_id").in("post_id", postIds),
         supabase.from("responses").select("post_id").in("post_id", postIds),
         supabase
           .from("saves")
           .select("post_id,user_id")
           .in("post_id", postIds),
+        supabase
+          .from("post_engagement_counts")
+          .select("post_id,share_count")
+          .in("post_id", postIds),
       ]);
       likeRows = (likesResult.data ?? []) as Array<{ post_id: string; user_id: string }>;
       responseRows = (responsesResult.data ?? []) as Array<{ post_id: string }>;
       saveRows = (savesResult.data ?? []) as Array<{ post_id: string; user_id: string }>;
+      engagementRows = (engagementResult.data ?? []) as Array<{ post_id: string; share_count: number | string }>;
     }
 
     const likeCounts = Object.fromEntries(postIds.map((id) => [id, 0]));
@@ -160,6 +167,8 @@ export default function ProfilePage() {
       likeRows.filter((row) => row.user_id === user.id).map((row) => row.post_id)
     );
     const saveCounts = Object.fromEntries(postIds.map((id) => [id, 0]));
+    const shareCounts = Object.fromEntries(postIds.map((id) => [id, 0]));
+    engagementRows.forEach((row) => { shareCounts[row.post_id] = Number(row.share_count) || 0; });
     saveRows.forEach((row) => { saveCounts[row.post_id] = (saveCounts[row.post_id] ?? 0) + 1; });
     const saved = new Set(saveRows.filter((row) => row.user_id === user.id).map((row) => row.post_id));
 
@@ -167,13 +176,15 @@ export default function ProfilePage() {
       ownGists.map((gist) => {
         const likes = likeCounts[gist.id] ?? 0;
         const responses = responseCounts[gist.id] ?? 0;
-        const status = likes > 0 || responses > 0 ? gist.status ?? "growing" : null;
+        const shares = shareCounts[gist.id] ?? 0;
+        const status = likes > 0 || responses > 0 || shares > 0 ? gist.status ?? "growing" : null;
         return {
           ...gist,
           status,
           likes,
           responses,
           saves: saveCounts[gist.id] ?? 0,
+          shares,
           liked: liked.has(gist.id),
           saved: saved.has(gist.id),
         };
@@ -350,11 +361,23 @@ export default function ProfilePage() {
     setBusy(null);
   }
 
-  function shareGist(gist: Gist) {
+  async function shareGist(gist: Gist) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return router.replace("/auth");
     const url = window.location.origin + "/gist/" + gist.id;
-    if (navigator.share)
-      void navigator.share({ title: "Gista", text: gist.body ?? "Join this Gist on Gista", url });
-    else void navigator.clipboard.writeText(url);
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Gista", text: gist.body ?? "Join this Gist on Gista", url });
+      } else {
+        await navigator.clipboard.writeText(url);
+      }
+      const result = await supabase.from("shares").insert({ post_id: gist.id, user_id: user.id });
+      if (!result.error) {
+        setGists((current) => current.map((item) => item.id === gist.id ? { ...item, shares: item.shares + 1, status: item.status ?? "growing" } : item));
+      }
+    } catch {
+      // User cancelled the native share sheet.
+    }
   }
 
   const initials = (profile?.display_name ?? displayName).trim()?.[0]?.toUpperCase() ?? "G";
@@ -470,7 +493,7 @@ export default function ProfilePage() {
                   <div className="actions profile-gist-actions">
                     <button type="button" className={gist.liked ? "liked" : ""} onClick={() => void toggleLike(gist)} disabled={busy === gist.id + "l"} aria-label="Like Gist"><Heart size={18} fill={gist.liked ? "currentColor" : "none"} /> {gist.likes}</button>
                     <Link className="feed-action-link" href={"/gist/" + gist.id}><MessageCircle size={18} /> {gist.responses}</Link>
-                    <button type="button" onClick={() => shareGist(gist)} aria-label="Share Gist"><Share2 size={18} /></button>
+                    <button type="button" onClick={() => void shareGist(gist)} aria-label="Share Gist"><Share2 size={18} /> {gist.shares}</button>
                     <button type="button" className={gist.saved ? "saved-action" : ""} onClick={() => void toggleSave(gist)} disabled={busy === gist.id + "s"} aria-label="Save Gist"><Bookmark size={18} fill={gist.saved ? "currentColor" : "none"} /> {gist.saves}</button>
                   </div>
                 </article>
