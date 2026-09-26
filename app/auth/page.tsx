@@ -44,7 +44,8 @@ export default function AuthPage(){
   }, []);
 
   function goBackToDestination() {
-    router.replace(safeNextPath(returnTo));
+    const destination = safeNextPath(returnTo);
+    router.replace(destination);
     router.refresh();
   }
 
@@ -64,7 +65,7 @@ export default function AuthPage(){
         goBackToDestination();
       }
     } else {
-      // Keep the shared Gist as the destination after email verification.
+      // Preserve the exact shared Gist through email verification.
       const emailRedirectTo = `${window.location.origin}/auth/confirm?next=${encodeURIComponent(safeNextPath(returnTo))}`;
       const result=await supabase.auth.signUp({email,password,options:{emailRedirectTo}});
 
@@ -81,5 +82,9 @@ export default function AuthPage(){
     setLoading(false);
   }
 
-  return <main className="auth-page"><div className="auth-card"><div className="brand auth-brand"><div className="brand-icon">G</div><span>Gista</span></div><h1>{mode==="login"?"Welcome back":"Create your account"}</h1><p>Come talk. Express yourself. Join the Gist.</p><form onSubmit={submit}><label>Email<input type="email" required value={email} onChange={e=>setEmail(e.target.value)} /></label><label>Password<input type="password" required minLength={6} value={password} onChange={e=>setPassword(e.target.value)} /></label><button className="primary" disabled={loading}>{loading?"Please wait…":mode==="login"?"Log in":"Sign up"}</button></form>{message&&<div className="auth-message">{message}</div>}<button className="switch" onClick={()=>setMode(mode==="login"?"signup":"login")}>{mode==="login"?"New to Gista? Create an account":"Already have an account? Log in"}</button><Link className="forgot" href="/auth/forgot-password">Forgot password?</Link></div></main>
+  const hasReturnGist = returnTo.startsWith("/gist/");
+
+  return <main className="auth-page"><div className="auth-card">
+    {hasReturnGist && <button type="button" className="switch" onClick={() => router.replace(returnTo)}>← Back to Gist</button>}
+    <div className="brand auth-brand"><div className="brand-icon">G</div><span>Gista</span></div><h1>{mode==="login"?"Welcome back":"Create your account"}</h1><p>Come talk. Express yourself. Join the Gist.</p><form onSubmit={submit}><label>Email<input type="email" required value={email} onChange={e=>setEmail(e.target.value)} /></label><label>Password<input type="password" required minLength={6} value={password} onChange={e=>setPassword(e.target.value)} /></label><button className="primary" disabled={loading}>{loading?"Please wait…":mode==="login"?"Log in":"Sign up"}</button></form>{message&&<div className="auth-message">{message}</div>}<button className="switch" onClick={()=>setMode(mode==="login"?"signup":"login")}>{mode==="login"?"New to Gista? Create an account":"Already have an account? Log in"}</button><Link className="forgot" href="/auth/forgot-password">Forgot password?</Link></div></main>
 }
