@@ -1,7 +1,7 @@
 /* Gist detail polish fixes */
 .gist-meta { display:flex; align-items:center; flex-wrap:wrap; gap:14px; margin-top:12px; padding-top:12px; border-top:1px solid #eeeaf4; color:#6f6a76; font-size:13px; }
-.gist-like-meta { display:inline-flex; align-items:center; gap:5px; color:#7c3aed; font-weight:700; }
-.gist-like-meta svg { color:#7c3aed; }
+.gist-like-meta { display:inline-flex; align-items:center; gap:5px; color:#77727f; font-weight:700; }
+.gist-like-meta svg { color:#77727f; }
 .gist-meta button { color:#6d28d9; font-weight:700; text-decoration:none; border:0; background:transparent; padding:0; }
 .gist-status a { color:#6d28d9; text-decoration:none; font-weight:700; }
 .gist-status a:visited { color:#6d28d9; }
@@ -20,15 +20,44 @@
 .response-reply { margin-right:14px; margin-top:8px; color:#6d28d9; font-size:13px; font-weight:650; text-decoration:none; }
 .response-actions { display:flex; align-items:center; flex-wrap:wrap; gap:14px; margin-top:8px; }
 .response-actions .response-reply { margin:0; }
-.response-like { display:inline-flex; align-items:center; gap:5px; color:#77727f; font-size:13px; font-weight:700; }
-.response-like.liked { color:#7c3aed; }
+
+/* Like state: the icon changes state, but the count/label always stays neutral gray. */
+.response-like,
+.response-like.liked,
+.reply-like,
+.reply-like.liked { display:inline-flex; align-items:center; gap:5px; color:#77727f !important; font-size:13px; font-weight:700; }
+.response-like svg,
+.reply-like svg { color:#77727f !important; }
+.response-like.liked svg,
+.reply-like.liked svg { color:#7c3aed !important; }
+.response-like .like-count,
+.response-like .action-count,
+.reply-like .like-count,
+.reply-like .action-count { color:#77727f !important; }
+
 .reply-actions { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-top:7px; }
 .reply-actions .response-reply { margin:0; }
-.reply-like { display:inline-flex; align-items:center; gap:5px; color:#77727f; font-size:12px; font-weight:700; }
-.reply-like.liked { color:#7c3aed; }
 .reply-box { margin-top:14px; padding:14px; border:1px solid #eeeaf4; border-radius:14px; background:#faf9fc; }
 .reply { display:flex; gap:10px; align-items:flex-start; }
 .reply + .reply { margin-top:14px; padding-top:14px; border-top:1px solid #eeeaf4; }
+
+/* Dark mode keeps the same state logic with a readable neutral gray. */
+html[data-theme="dark"] .gist-meta { border-color:#2b2732; color:#aaa4b1; }
+html[data-theme="dark"] .gist-like-meta,
+html[data-theme="dark"] .gist-like-meta svg { color:#aaa4b1 !important; }
+html[data-theme="dark"] .response-like,
+html[data-theme="dark"] .response-like.liked,
+html[data-theme="dark"] .reply-like,
+html[data-theme="dark"] .reply-like.liked,
+html[data-theme="dark"] .response-like svg,
+html[data-theme="dark"] .reply-like svg,
+html[data-theme="dark"] .response-like .like-count,
+html[data-theme="dark"] .response-like .action-count,
+html[data-theme="dark"] .reply-like .like-count,
+html[data-theme="dark"] .reply-like .action-count { color:#aaa4b1 !important; }
+html[data-theme="dark"] .response-like.liked svg,
+html[data-theme="dark"] .reply-like.liked svg { color:#7c3aed !important; }
+
 @media (max-width:480px) { .dna-grid{grid-template-columns:1fr}.modal-backdrop{align-items:flex-end;padding:0}.modal-card{max-height:88vh;border-radius:22px 22px 0 0} }
 
 /* Link polish: Gista uses button-style navigation rather than browser underlines. */
