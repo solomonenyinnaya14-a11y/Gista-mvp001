@@ -8,8 +8,38 @@ import { createClient } from "@/lib/supabase/client";
 import VoiceNote from "@/components/VoiceNote";
 
 const categories = ["Music","Movies / Entertainment","Art","Banter","Fun","Gossip","Sports","Relationships","Business","Technology","Education","Lifestyle","Society","News & Current Events","Opinions","Stories"];
-
 type Profile = { display_name: string | null; username: string | null; avatar_url: string | null };
+
+async function compressPhoto(file: File): Promise<File> {
+  const maxDimension = 1600;
+  const quality = 0.82;
+
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Could not read that photo.")); };
+    img.src = url;
+  });
+
+  const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) return file;
+  context.drawImage(image, 0, 0, width, height);
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+  if (!blob) return file;
+
+  return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
 
 export default function CreatePage() {
   const [mode, setMode] = useState<"text" | "photo" | "voice">("text");
@@ -22,6 +52,7 @@ export default function CreatePage() {
   const [audio, setAudio] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState("");
   const [loading, setLoading] = useState(false);
+  const [compressing, setCompressing] = useState(false);
   const [error, setError] = useState("");
   const [profile, setProfile] = useState<Profile | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);
@@ -85,6 +116,31 @@ export default function CreatePage() {
     }
   }
 
+  async function handlePhoto(file: File | null) {
+    setError("");
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Use a JPG, PNG, or WebP image.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Gist photos must be 10MB or smaller.");
+      return;
+    }
+
+    setCompressing(true);
+    try {
+      const optimized = await compressPhoto(file);
+      if (photoPreview) URL.revokeObjectURL(photoPreview);
+      setPhoto(optimized);
+      setPhotoPreview(URL.createObjectURL(optimized));
+    } catch {
+      setError("That photo could not be prepared. Please choose another photo.");
+    } finally {
+      setCompressing(false);
+    }
+  }
+
   async function post() {
     setError("");
     if (!category) return setError("Choose a category.");
@@ -103,16 +159,19 @@ export default function CreatePage() {
 
     let media_url: string | null = null;
     if (mode === "photo" && photo) {
-      const extension = photo.name.split(".").pop() || "jpg";
-      const path = user.id + "/" + crypto.randomUUID() + "." + extension;
-      const upload = await supabase.storage.from("gist-media").upload(path, photo, { contentType: photo.type });
+      const path = user.id + "/" + crypto.randomUUID() + ".jpg";
+      const upload = await supabase.storage.from("gist-media").upload(path, photo, {
+        contentType: "image/jpeg",
+        cacheControl: "31536000",
+        upsert: false,
+      });
       if (upload.error) { setError(upload.error.message); setLoading(false); return; }
       media_url = supabase.storage.from("gist-media").getPublicUrl(path).data.publicUrl;
     }
 
     if (mode === "voice" && audio) {
       const path = user.id + "/" + crypto.randomUUID() + ".webm";
-      const upload = await supabase.storage.from("gist-audio").upload(path, audio, { contentType: audio.type || "audio/webm" });
+      const upload = await supabase.storage.from("gist-audio").upload(path, audio, { contentType: audio.type || "audio/webm", cacheControl: "31536000", upsert: false });
       if (upload.error) { setError(upload.error.message); setLoading(false); return; }
       media_url = supabase.storage.from("gist-audio").getPublicUrl(path).data.publicUrl;
     }
@@ -145,38 +204,23 @@ export default function CreatePage() {
   return (
     <main className="create-page">
       <style>{`
-        /* Photo Gist composer: keep optional caption compact so the photo follows naturally. */
-        .create-page .photo-caption {
-          height: auto !important;
-          min-height: 76px;
-          max-height: 190px;
-          overflow-y: auto;
-          margin: 0 0 12px;
-          padding: 6px 0 8px;
-          resize: none;
-          line-height: 1.45;
-        }
-        .create-page .photo-composer { margin-top: 0; }
-        .create-page .photo-preview,
-        .create-page .photo-empty { background: #f4f4f5; }
-        .create-page .photo-empty { min-height: 220px; }
-        html[data-theme="dark"] .create-page .photo-caption { color: #f4f1f7; }
-        html[data-theme="dark"] .create-page .photo-caption::placeholder { color: #aaa4b1; }
-        html[data-theme="dark"] .create-page .photo-preview { background: #18151d; }
-        html[data-theme="dark"] .create-page .photo-empty {
-          background: #18151d;
-          border-color: #3b3545;
-          color: #aaa4b1;
-        }
+        .create-page .photo-caption { height:auto !important; min-height:76px; max-height:190px; overflow-y:auto; margin:0 0 12px; padding:6px 0 8px; resize:none; line-height:1.45; }
+        .create-page .photo-composer { margin-top:0; }
+        .create-page .photo-preview,.create-page .photo-empty { background:#f4f4f5; }
+        .create-page .photo-empty { min-height:220px; }
+        html[data-theme="dark"] .create-page .photo-caption { color:#f4f1f7; }
+        html[data-theme="dark"] .create-page .photo-caption::placeholder { color:#aaa4b1; }
+        html[data-theme="dark"] .create-page .photo-preview { background:#18151d; }
+        html[data-theme="dark"] .create-page .photo-empty { background:#18151d; border-color:#3b3545; color:#aaa4b1; }
       `}</style>
       <header className="simple-header">
         <Link href="/">Cancel</Link>
         <strong>Start a Gist</strong>
-        <button onClick={post} disabled={loading}>{loading ? "Posting…" : "Post"}</button>
+        <button onClick={post} disabled={loading || compressing}>{loading ? "Posting…" : "Post"}</button>
       </header>
       <section className="create-card">
         <Link href="/profile" className="avatar" aria-label="Open your profile">
-          {profile?.avatar_url ? <img src={profile.avatar_url} alt="Your profile" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : initials}
+          {profile?.avatar_url ? <img src={profile.avatar_url} alt="Your profile" style={{ width:"100%", height:"100%", objectFit:"cover", borderRadius:"50%" }} /> : initials}
         </Link>
         <div className="format-row">
           <button type="button" className={mode === "text" ? "active" : ""} onClick={() => setMode("text")}><Type />Text</button>
@@ -185,22 +229,14 @@ export default function CreatePage() {
         </div>
 
         {mode === "photo" && <textarea className="photo-caption" value={text} onChange={(event) => setText(event.target.value)} maxLength={5000} rows={2} placeholder="Add a caption or say something about your Gist (optional)…" aria-label="Optional text for this Gist" />}
-
         {mode === "text" && <textarea value={text} onChange={(event) => setText(event.target.value)} maxLength={5000} placeholder="Say something worth sharing…" />}
 
         {mode === "photo" && (
           <div className="photo-composer">
             <label className="photo-picker" htmlFor="gist-photo">
-              {photoPreview ? <img src={photoPreview} alt="Selected Gist" className="photo-preview" /> : <div className="photo-empty"><ImagePlus size={32} /><span>Choose a photo</span></div>}
+              {photoPreview ? <img src={photoPreview} alt="Selected Gist" className="photo-preview" /> : <div className="photo-empty"><ImagePlus size={32} /><span>{compressing ? "Preparing photo…" : "Choose a photo"}</span></div>}
             </label>
-            <input id="gist-photo" type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={(event) => {
-              const file = event.target.files?.[0] ?? null;
-              if (file && !["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Use a JPG, PNG, or WebP image."); return; }
-              if (file && file.size > 10 * 1024 * 1024) { setError("Gist photos must be 10MB or smaller."); return; }
-              if (photoPreview) URL.revokeObjectURL(photoPreview);
-              setPhoto(file);
-              setPhotoPreview(file ? URL.createObjectURL(file) : "");
-            }} />
+            <input id="gist-photo" type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={compressing} onChange={(event) => { const file = event.target.files?.[0] ?? null; void handlePhoto(file); event.currentTarget.value = ""; }} />
           </div>
         )}
 
