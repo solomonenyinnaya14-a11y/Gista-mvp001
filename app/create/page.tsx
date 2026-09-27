@@ -144,6 +144,31 @@ export default function CreatePage() {
 
   return (
     <main className="create-page">
+      <style>{`
+        /* Photo Gist composer: keep optional caption compact so the photo follows naturally. */
+        .create-page .photo-caption {
+          height: auto !important;
+          min-height: 76px;
+          max-height: 190px;
+          overflow-y: auto;
+          margin: 0 0 12px;
+          padding: 6px 0 8px;
+          resize: none;
+          line-height: 1.45;
+        }
+        .create-page .photo-composer { margin-top: 0; }
+        .create-page .photo-preview,
+        .create-page .photo-empty { background: #f4f4f5; }
+        .create-page .photo-empty { min-height: 220px; }
+        html[data-theme="dark"] .create-page .photo-caption { color: #f4f1f7; }
+        html[data-theme="dark"] .create-page .photo-caption::placeholder { color: #aaa4b1; }
+        html[data-theme="dark"] .create-page .photo-preview { background: #18151d; }
+        html[data-theme="dark"] .create-page .photo-empty {
+          background: #18151d;
+          border-color: #3b3545;
+          color: #aaa4b1;
+        }
+      `}</style>
       <header className="simple-header">
         <Link href="/">Cancel</Link>
         <strong>Start a Gist</strong>
@@ -159,7 +184,7 @@ export default function CreatePage() {
           <button type="button" className={mode === "voice" ? "active" : ""} onClick={() => { setMode("voice"); setAudio(null); setAudioUrl(""); }}><Mic />Voice</button>
         </div>
 
-        {mode !== "text" && <textarea value={text} onChange={(event) => setText(event.target.value)} maxLength={5000} placeholder="Add a caption or say something about your Gist (optional)…" aria-label="Optional text for this Gist" />}
+        {mode === "photo" && <textarea className="photo-caption" value={text} onChange={(event) => setText(event.target.value)} maxLength={5000} rows={2} placeholder="Add a caption or say something about your Gist (optional)…" aria-label="Optional text for this Gist" />}
 
         {mode === "text" && <textarea value={text} onChange={(event) => setText(event.target.value)} maxLength={5000} placeholder="Say something worth sharing…" />}
 
