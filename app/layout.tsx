@@ -9,6 +9,7 @@ import "./action-theme-fixes.css";
 import "./performance-fixes.css";
 import VerifiedBadgeInjector from "@/components/VerifiedBadgeInjector";
 import ThemeProvider from "@/components/ThemeProvider";
+import NavigationPrefetch from "@/components/NavigationPrefetch";
 
 export const metadata: Metadata={title:"Gista",description:"Explore. Share. Talk. Belong."};
-export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body><ThemeProvider><VerifiedBadgeInjector />{children}</ThemeProvider></body></html>}
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body><ThemeProvider><VerifiedBadgeInjector /><NavigationPrefetch />{children}</ThemeProvider></body></html>}
