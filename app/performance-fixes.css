@@ -1,0 +1,35 @@
+/* Gista performance + feed layout pass.
+   Keep the existing visual language; fix content order, layout shift, and perceived navigation speed. */
+
+/* Social-feed order: header -> caption -> media -> status -> actions. */
+.post{display:flex;flex-direction:column;content-visibility:auto;contain-intrinsic-size:520px}
+.post>.post-head{order:1}
+.post>.post-text{order:2}
+.post>img,.post>.voice-note{order:3}
+.post>.gist-status{order:4}
+.post>.actions{order:5}
+
+/* Keep photo Gists natural and contained instead of creating oversized feed cards. */
+.post>img{display:block;width:100%;height:auto;max-height:620px;object-fit:contain;border-radius:16px;margin-top:10px;background:#f4f4f5}
+.post>.post-text{margin:12px 0 0}
+.post>.gist-status{margin-top:12px}
+.post>.actions{margin-top:12px}
+
+/* Avoid layout jumps while media is loading. */
+.post>img[loading="lazy"]{content-visibility:auto;contain-intrinsic-size:680px 480px}
+
+/* Make navigation feel immediate on touch devices. */
+.bottom-nav a,.tab,.create-btn,.composer-input,.icon-btn,.profile-back,.profile-settings{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+
+/* Route loading shells should feel like the app, not a browser refresh. */
+.route-skeleton{width:min(680px,100%);margin:0 auto;background:#f7f7fb;min-height:calc(100vh - 64px);padding-bottom:90px}
+.route-skeleton-header{height:64px;background:#fff;border-bottom:1px solid #eeeaf4;display:flex;align-items:center;justify-content:space-between;padding:0 18px}
+.route-skeleton-line,.route-skeleton-block{background:linear-gradient(90deg,#eeeaf4 25%,#f8f6fb 37%,#eeeaf4 63%);background-size:400% 100%;animation:gista-route-shimmer 1.15s ease-in-out infinite;border-radius:12px}
+.route-skeleton-line{height:16px;width:110px}
+.route-skeleton-block{height:130px;margin:12px;background:#fff;border:1px solid #eeeaf4}
+@keyframes gista-route-shimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+
+@media(max-width:480px){
+  .post>img{max-height:620px}
+  .route-skeleton-block{height:180px;margin:10px 0}
+}
