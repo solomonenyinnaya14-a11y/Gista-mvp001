@@ -9,15 +9,11 @@ export default function NavigationPrefetch() {
   const router = useRouter();
 
   useEffect(() => {
-    const warm = () => PRIMARY_ROUTES.forEach((route) => router.prefetch(route));
-    const idle = "requestIdleCallback" in window
-      ? window.requestIdleCallback(warm, { timeout: 1200 })
-      : window.setTimeout(warm, 250);
+    const timer = window.setTimeout(() => {
+      PRIMARY_ROUTES.forEach((route) => router.prefetch(route));
+    }, 250);
 
-    return () => {
-      if (typeof idle === "number") window.clearTimeout(idle);
-      else window.cancelIdleCallback?.(idle);
-    };
+    return () => window.clearTimeout(timer);
   }, [router]);
 
   return null;
