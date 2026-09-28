@@ -1,4 +1,4 @@
-/* Home-feed polish: keep profile photos crisp and remove default link underlines. */
+/* Home feed uses the same formal post-feed architecture as the Profile feed. */
 .avatar{overflow:hidden;display:grid;place-items:center;flex-shrink:0}
 .avatar img{display:block;width:100%;height:100%;object-fit:cover;border-radius:50%}
 .identity a{color:inherit;text-decoration:none}
@@ -10,15 +10,14 @@
 .profile-gist img{display:block;width:100%;height:auto;aspect-ratio:4 / 5;object-fit:cover;border-radius:12px;background:#f4f4f5;vertical-align:top}
 .post,.feed{overflow-anchor:auto}
 
-/* Home cards intentionally mirror the clean profile-feed card architecture. */
-.home-gist{border:1px solid #eeeaf4;border-radius:16px;padding:14px 18px;margin:0 10px;background:#fff}
-.home-gist-text{display:block;color:inherit;text-decoration:none}
-.home-gist-text .post-text{margin:10px 0 0;font-size:16px;line-height:1.45}
-.home-gist-media{display:block;color:inherit;text-decoration:none;margin-top:10px;overflow:hidden;border-radius:12px}
-.home-gist-media img{display:block;width:100%;height:auto;aspect-ratio:4 / 5;object-fit:cover;background:#f4f4f5}
-.home-gist .voice-note{margin-top:10px}
-.home-gist-dna{margin-top:10px}
-.home-gist-dna a{margin-left:2px;color:#6d28d9;text-decoration:none;font-weight:750}
-.home-gist .actions{margin-top:12px}
-@media(min-width:700px){.home-gist{margin:0 8px}}
-@media(max-width:480px){.home-gist{margin:0 10px;padding:14px 16px}}
+/* Home posts intentionally reuse the clean, borderless profile-feed post layout. */
+.feed{gap:0}
+.profile-gist-content{display:block;color:inherit;text-decoration:none}
+.profile-gist-content p{margin:0 0 12px;font-size:16px;line-height:1.45}
+.profile-gist-voice .voice-note{margin-top:8px}
+.profile-gist-actions{margin-top:12px}
+.gist-status a{margin-left:2px;color:#6d28d9;text-decoration:none;font-weight:750}
+
+@media(max-width:480px){
+  .profile-gist{padding-left:18px;padding-right:18px}
+}
