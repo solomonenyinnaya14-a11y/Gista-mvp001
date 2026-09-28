@@ -9,11 +9,9 @@ export default function NavigationPrefetch() {
   const router = useRouter();
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      PRIMARY_ROUTES.forEach((route) => router.prefetch(route));
-    }, 250);
-
-    return () => window.clearTimeout(timer);
+    // Warm the primary social-navigation routes immediately after hydration.
+    // Waiting here made a fast tap on iPhone race the prefetch timer.
+    PRIMARY_ROUTES.forEach((route) => router.prefetch(route));
   }, [router]);
 
   return null;
