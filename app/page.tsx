@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Bookmark, Heart, Home, MessageCircle, Plus, Search, Settings, Share2, UserRound } from "lucide-react";
+import { Bookmark, Heart, MessageCircle, Plus, Settings, Share2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import VoiceNote from "@/components/VoiceNote";
+import BottomNav from "@/components/BottomNav";
 
 type Profile={id:string;display_name:string|null;username:string|null;avatar_url:string|null};
 type FeedRow={id:string;body:string|null;content_type:string;media_url:string|null;category:string;status:string|null;created_at:string;author_id:string;voice_duration_seconds:number|null;display_name:string|null;username:string|null;avatar_url:string|null;likes:number|string;responses:number|string;shares:number|string;saves:number|string;liked:boolean;saved:boolean};
@@ -29,7 +30,7 @@ export default function HomePage(){
       <div className="composer"><Link href="/profile" className="avatar">{profile?.avatar_url?<img src={profile.avatar_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}}/>:displayName[0]?.toUpperCase()||"G"}</Link><Link className="composer-input" href="/create">What&apos;s on your mind, {displayName.split(" ")[0]}?</Link><Link className="create-btn" aria-label="Create Post" href="/create"><Plus size={19}/></Link></div>
       <div className="feed">
         {loading?<div className="feed-skeleton"><div className="skeleton-post"/><div className="skeleton-post"/></div>:feedError&&posts.length===0?<div className="empty-state"><h3>We couldn&apos;t load the Posts</h3><p>{feedError}</p><button className="primary small" onClick={()=>void loadPosts(user)}>Try again</button></div>:posts.length===0?<div className="empty-state"><h3>{tab==="Trending"?"No Trending Posts yet":"No Posts yet"}</h3><p>{tab==="Following"?"Follow people to see their Posts here.":tab==="Trending"?"When Posts start trending, they will appear here.":"Be the first person to create a Post."}</p></div>:posts.map((p,i)=><article className="profile-gist" key={p.id}>
-          <div className="post-head" style={{marginBottom:12}}><Link href={p.profiles?.username?"/profile/"+p.profiles.username:"/profile"} className="avatar">{p.profiles?.avatar_url?<img src={p.profiles.avatar_url} alt="" loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}}/>:p.profiles?.display_name?.[0]?.toUpperCase()||"G"}</Link><div className="identity"><Link href={p.profiles?.username?"/profile/"+p.profiles.username:"/profile"}><strong>{p.profiles?.display_name??"Gista User"}</strong></Link><span>@{p.profiles?.username??"user"} · {new Date(p.created_at).toLocaleString()}</span></div><span className="category">{p.category}</span></div>
+          <div className="post-head"><Link href={p.profiles?.username?"/profile/"+p.profiles.username:"/profile"} className="avatar">{p.profiles?.avatar_url?<img src={p.profiles.avatar_url} alt="" loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}}/>:p.profiles?.display_name?.[0]?.toUpperCase()||"G"}</Link><div className="identity"><Link href={p.profiles?.username?"/profile/"+p.profiles.username:"/profile"}><strong>{p.profiles?.display_name??"Gista User"}</strong></Link><span>@{p.profiles?.username??"user"} · {new Date(p.created_at).toLocaleString()}</span></div><span className="category">{p.category}</span></div>
           <Link className="profile-gist-content" href={"/post/"+p.id}>{p.body&&<p>{p.body}</p>}{p.content_type==="photo"&&p.media_url&&<img src={p.media_url} alt="Post" loading={i===0?"eager":"lazy"}/>}</Link>
           {p.content_type==="voice"&&p.media_url&&<div className="profile-gist-voice"><VoiceNote src={p.media_url} durationHint={p.voice_duration_seconds??0}/></div>}
           <div className="gist-status"><span className="dot">●</span>{p.status?p.status.charAt(0).toUpperCase()+p.status.slice(1):"Growing"}<Link href={"/post/"+p.id}>Post DNA</Link></div>
@@ -37,6 +38,6 @@ export default function HomePage(){
         </article>)}
       </div>
     </section>
-    <nav className="bottom-nav"><Link href="/" className="nav-active"><Home size={20}/><span>Home</span></Link><Link href="/search"><Search size={20}/><span>Search</span></Link><Link href="/create" className="nav-create" aria-label="Create Post"><Plus size={24}/></Link><Link href="/notifications"><Bell size={20}/><span>Notifications</span></Link><Link href="/profile"><UserRound size={20}/><span>Profile</span></Link></nav>
+    <BottomNav active="home"/>
   </main>
 }
