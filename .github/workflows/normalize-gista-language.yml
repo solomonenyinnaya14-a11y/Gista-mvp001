@@ -1,0 +1,106 @@
+name: Normalize Gista Post Language
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: ${{ github.event.head_commit.message != 'chore: normalize Gista post terminology' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Normalize public product language
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          replacements = {
+              "Gist DNA": "Post details",
+              "Gist not found.": "Post not found.",
+              "Loading Gist…": "Loading Post…",
+              "Loading Gists…": "Loading Posts…",
+              "No Gists yet": "No Posts yet",
+              "No Trending Gists yet": "No Trending Posts yet",
+              "We couldn't load the Gists": "We couldn't load the Posts",
+              "Follow people to see their Gists here.": "Follow people to see their Posts here.",
+              "When Gists start trending, they will appear here.": "When Posts start trending, they will appear here.",
+              "Be the first person to start a Gist.": "Be the first person to create a Post.",
+              "Be the first person to start a Gist": "Be the first person to create a Post",
+              "Start a Gist": "Create Post",
+              "Start a Gist first": "Create a Post first",
+              "start a Gist": "create a Post",
+              "starting a Gist": "creating a Post",
+              "Voice Gist": "Voice Post",
+              "Photo Gist": "Photo Post",
+              "Text Gist": "Text Post",
+              "My Gists": "My Posts",
+              "Saved Gists": "Saved Posts",
+              "Save Gist": "Save Post",
+              "Delete Gist": "Delete Post",
+              "Report Gist": "Report Post",
+              "this Gist": "this Post",
+              "this gist": "this post",
+              "Join this Gist on Gista": "Check out this post on Gista",
+              "Search Gists, people, categories…": "Search Posts, people, categories…",
+              "Search Gists": "Search Posts",
+              "Gists": "Posts",
+              "gists": "posts",
+              "Gist": "Post",
+              "gist": "post",
+              "Responses": "Comments",
+              "responses": "comments",
+              "Response": "Comment",
+              "response": "comment",
+              "Join the Post": "Comments",
+              "Join the Conversation": "Comments",
+          }
+
+          # Only rewrite user-facing string literals / JSX text. Do not touch
+          # database table names, storage buckets, variables, or TypeScript identifiers.
+          files = list(Path('app').rglob('*.tsx')) + list(Path('components').rglob('*.tsx'))
+          for path in files:
+              text = path.read_text()
+              original = text
+              for old, new in replacements.items():
+                  text = text.replace(old, new)
+              # Keep public URLs consistent with the new Post terminology.
+              text = text.replace('/gist/', '/post/')
+              if text != original:
+                  path.write_text(text)
+
+          # Move the public post detail route from /gist/:id to /post/:id.
+          old = Path('app/gist/[id]')
+          new = Path('app/post/[id]')
+          if old.exists() and not new.exists():
+              new.parent.mkdir(parents=True, exist_ok=True)
+              old.rename(new)
+
+          # README is product-facing documentation too.
+          readme = Path('README.md')
+          text = readme.read_text()
+          for old_text, new_text in replacements.items():
+              text = text.replace(old_text, new_text)
+          readme.write_text(text)
+          PY
+
+      - name: Commit normalized language
+        shell: bash
+        run: |
+          rm -f .github/workflows/normalize-gista-language.yml
+          git config user.name "Gista Builder"
+          git config user.email "actions@github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes needed."
+            exit 0
+          fi
+          git commit -m "chore: normalize Gista post terminology"
+          git push
