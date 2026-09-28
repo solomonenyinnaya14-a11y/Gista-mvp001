@@ -1,0 +1,51 @@
+name: Normalize public Gista language
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    if: ${{ github.event.head_commit.message != 'chore: normalize public post language' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Normalize source labels safely
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          files = list(Path('app').rglob('*.tsx')) + list(Path('components').rglob('*.tsx'))
+          replacements = [
+              (r'\bGists\b', 'Posts'),
+              (r'\bGist\b', 'Post'),
+              (r'\bgists\b', 'posts'),
+              (r'\bgist\b', 'post'),
+              (r'\bResponses\b', 'Comments'),
+              (r'\bResponse\b', 'Comment'),
+              (r'\bresponses\b', 'comments'),
+              (r'\bresponse\b', 'comment'),
+              ('Gist DNA', 'Post DNA'),
+              ('Post details', 'Post DNA'),
+              ('/gist/', '/post/'),
+          ]
+          for path in files:
+              text = path.read_text()
+              original = text
+              for pattern, replacement in replacements:
+                  text = re.sub(pattern, replacement, text)
+              if text != original:
+                  path.write_text(text)
+          PY
+          rm -f .github/workflows/normalize-public-language.yml
+          git config user.name "Gista Builder"
+          git config user.email "actions@github.com"
+          git add -A
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "chore: normalize public post language"
+          git push
