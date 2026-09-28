@@ -3,7 +3,8 @@
 import { useEffect } from "react";
 
 const replacements: Array<[string, string]> = [
-  ["Gist DNA", "Post details"],
+  ["Gist DNA", "Post DNA"],
+  ["Post details", "Post DNA"],
   ["Gist not found.", "Post not found."],
   ["Loading Gist…", "Loading Post…"],
   ["Loading Gists…", "Loading Posts…"],
@@ -53,20 +54,22 @@ export default function PostLanguageNormalizer() {
       document.querySelectorAll<HTMLImageElement>("article.post > img").forEach((image) => {
         image.style.display = "block";
         image.style.width = "100%";
-        image.style.height = "min(520px, 72vw)";
-        image.style.maxHeight = "520px";
-        image.style.objectFit = "contain";
+        image.style.height = "auto";
+        image.style.maxHeight = "min(620px, 125vw)";
+        image.style.aspectRatio = "4 / 5";
+        image.style.objectFit = "cover";
         image.style.objectPosition = "center";
-        image.style.background = "#f4f4f5";
+        image.style.background = "transparent";
         image.style.borderRadius = "16px";
         image.style.marginTop = "10px";
       });
 
       document.querySelectorAll<HTMLAnchorElement>("a").forEach((link) => {
-        if (link.textContent?.trim() === "Post details") {
+        if (link.textContent?.trim() === "Post details" || link.textContent?.trim() === "Post DNA") {
+          link.textContent = "Post DNA";
           link.style.marginLeft = "auto";
           link.style.color = "#7c3aed";
-          link.style.fontSize = "12px";
+          link.style.fontSize = "13px";
           link.style.fontWeight = "800";
           link.style.textDecoration = "none";
           if (link.href.includes("/gist/")) link.href = link.href.replace("/gist/", "/post/");
