@@ -45,7 +45,8 @@ export default function PostLanguageNormalizer() {
     const shouldSkip = (node: Node) => {
       const parent = node.parentElement;
       if (!parent) return true;
-      return ["SCRIPT", "STYLE", "TEXTAREA", "INPUT"].includes(parent.tagName);
+      if (["SCRIPT", "STYLE", "TEXTAREA", "INPUT"].includes(parent.tagName)) return true;
+      return Boolean(parent.closest(".post-text, .bio, .identity, [contenteditable='true']"));
     };
 
     const normalize = (root: Node) => {
