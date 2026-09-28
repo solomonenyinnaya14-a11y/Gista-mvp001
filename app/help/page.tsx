@@ -1,9 +1,9 @@
 import Link from "next/link";
 
 const items=[
-["How to use Gista","/how-to-use","Learn the basic Gista flow and what each action means."],
+["How to use Gista","/how-to-use","Learn the basic Post, Comment and Reply flow and what each action means."],
 ["Account & profile","/profile","Edit your profile, profile photo and account information."],
-["Safety","/settings/blocked","Block users, report Gists and use Not Interested."],
+["Safety","/settings/blocked","Block users, report Posts and use Not Interested."],
 ["Password & security","/auth/forgot-password","Reset your password and manage account access."],
 ];
 
