@@ -32,7 +32,6 @@ const replacements: Array<[string, string]> = [
   ["Responses", "Comments"],
   ["Response", "Comment"],
   ["Gists", "Posts"],
-  ["Gist", "Post"],
 ];
 
 function normalizeText(value: string) {
@@ -55,7 +54,7 @@ export default function PostLanguageNormalizer() {
         image.style.display = "block";
         image.style.width = "100%";
         image.style.height = "auto";
-        image.style.maxHeight = "min(620px, 125vw)";
+        image.style.maxHeight = "620px";
         image.style.aspectRatio = "4 / 5";
         image.style.objectFit = "cover";
         image.style.objectPosition = "center";
