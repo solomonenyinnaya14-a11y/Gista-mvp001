@@ -1,12 +1,9 @@
 name: Fix Post UI
-
 on:
   push:
     branches: [main]
-
 permissions:
   contents: write
-
 jobs:
   fix:
     if: ${{ github.event.head_commit.message != 'fix: standardize post search and media UI' }}
@@ -18,55 +15,36 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-
-          page = Path('app/page.tsx')
-          text = page.read_text()
+          page = Path('app/page.tsx'); text = page.read_text()
           replacements = {
-              'const url = window.location.origin + "/gist/" + post.id;': 'const url = window.location.origin + "/post/" + post.id;',
-              'text: post.body ?? "Join this Gist on Gista",': 'text: post.body ?? "Check out this post on Gista",',
-              'aria-label="Start a Gist" href="/create"': 'aria-label="Create Post" href="/create"',
-              'aria-label="Loading Gists"': 'aria-label="Loading Posts"',
-              'We couldn&apos;t load the Gists': 'We couldn&apos;t load the Posts',
-              'No Trending Gists yet': 'No Trending Posts yet',
-              'No Gists yet': 'No Posts yet',
-              'Follow people to see their Gists here.': 'Follow people to see their Posts here.',
-              'When Gists start trending, they will appear here.': 'When Posts start trending, they will appear here.',
-              'Be the first person to start a Gist.': 'Be the first person to create a Post.',
-              'alt="Gist photo"': 'alt="Post photo"',
-              'style={{ width: "100%", borderRadius: 16, marginTop: 10 }}': 'className="post-media"',
-              '<Link href={"/gist/" + post.id}>Gist DNA</Link>': '<Link className="post-details-link" href={"/post/" + post.id}>Post details</Link>',
-              'href={"/gist/" + post.id}>': 'href={"/post/" + post.id}>',
-              'aria-label="Like Gist"': 'aria-label="Like Post"',
-              'aria-label="Share Gist"': 'aria-label="Share Post"',
-              'aria-label="Save Gist"': 'aria-label="Save Post"',
-              'aria-label="Start a Gist"': 'aria-label="Create Post"',
-          }
-          for old, new in replacements.items(): text = text.replace(old, new)
+            'const url = window.location.origin + "/gist/" + post.id;':'const url = window.location.origin + "/post/" + post.id;',
+            'text: post.body ?? "Join this Gist on Gista",':'text: post.body ?? "Check out this post on Gista",',
+            'aria-label="Start a Gist" href="/create"':'aria-label="Create Post" href="/create"',
+            'aria-label="Loading Gists"':'aria-label="Loading Posts"',
+            'We couldn&apos;t load the Gists':'We couldn&apos;t load the Posts',
+            'No Trending Gists yet':'No Trending Posts yet','No Gists yet':'No Posts yet',
+            'Follow people to see their Gists here.':'Follow people to see their Posts here.',
+            'When Gists start trending, they will appear here.':'When Posts start trending, they will appear here.',
+            'Be the first person to start a Gist.':'Be the first person to create a Post.',
+            'alt="Gist photo"':'alt="Post photo"',
+            'style={{ width: "100%", borderRadius: 16, marginTop: 10 }}':'className="post-media"',
+            '<Link href={"/gist/" + post.id}>Gist DNA</Link>':'<Link className="post-details-link" href={"/post/" + post.id}>Post details</Link>',
+            'href={"/gist/" + post.id}>':'href={"/post/" + post.id}>',
+            'aria-label="Like Gist"':'aria-label="Like Post"','aria-label="Share Gist"':'aria-label="Share Post"','aria-label="Save Gist"':'aria-label="Save Post"','aria-label="Start a Gist"':'aria-label="Create Post"'}
+          for old,new in replacements.items(): text=text.replace(old,new)
           page.write_text(text)
-
-          search = Path('app/search/page.tsx')
-          text = search.read_text()
-          replacements = {
-              'const [tab, setTab] = useState("Gists");': 'const [tab, setTab] = useState("Posts");',
-              'setTab("Gists");': 'setTab("Posts");',
-              '["Gists", "People", "Categories"]': '["Posts", "People", "Categories"]',
-              'placeholder="Search Gists, people, categories…"': 'placeholder="Search Posts, people, categories…"',
-              'tab === "Gists"': 'tab === "Posts"',
-              'No Gists found for this search.': 'No Posts found for this search.',
-              'Search for Gists, people or categories above.': 'Search for Posts, people or categories above.',
-              'href={`/gist/${post.id}`}': 'href={`/post/${post.id}`}',
-              'alt="Gist"': 'alt="Post"',
-              'style={{ width: "100%", borderRadius: 16 }}': 'className="post-media"',
-          }
-          for old, new in replacements.items(): text = text.replace(old, new)
+          search=Path('app/search/page.tsx'); text=search.read_text()
+          replacements={
+            'const [tab, setTab] = useState("Gists");':'const [tab, setTab] = useState("Posts");',
+            'setTab("Gists");':'setTab("Posts");','["Gists", "People", "Categories"]':'["Posts", "People", "Categories"]',
+            'placeholder="Search Gists, people, categories…"':'placeholder="Search Posts, people, categories…"','tab === "Gists"':'tab === "Posts"',
+            'No Gists found for this search.':'No Posts found for this search.','Search for Gists, people or categories above.':'Search for Posts, people or categories above.',
+            'href={`/gist/${post.id}`}':'href={`/post/${post.id}`}','alt="Gist"':'alt="Post"','style={{ width: "100%", borderRadius: 16 }}':'className="post-media"'}
+          for old,new in replacements.items(): text=text.replace(old,new)
           search.write_text(text)
-
-          Path('app/post-media-fixes.css').write_text('''/* Keep feed photos consistent without cropping the original image. */\n.post-media{display:block;width:100%;height:min(520px,72vw);max-height:520px;object-fit:contain;object-position:center;background:#f4f4f5;border-radius:16px;margin-top:10px}\n.post-details-link{margin-left:auto;color:#7c3aed;font-size:12px;font-weight:800;text-decoration:none}\n.post-details-link:hover{text-decoration:underline}\n@media(min-width:700px){.post-media{height:min(620px,62vw);max-height:620px}}\n''')
-
-          layout = Path('app/layout.tsx')
-          text = layout.read_text()
-          if 'import "./post-media-fixes.css";' not in text:
-              text = text.replace('import "./performance-fixes.css";', 'import "./performance-fixes.css";\nimport "./post-media-fixes.css";')
+          Path('app/post-media-fixes.css').write_text('''.post-media{display:block;width:100%;height:min(520px,72vw);max-height:520px;object-fit:contain;object-position:center;background:#f4f4f5;border-radius:16px;margin-top:10px}.post-details-link{margin-left:auto;color:#7c3aed;font-size:12px;font-weight:800;text-decoration:none}.post-details-link:hover{text-decoration:underline}@media(min-width:700px){.post-media{height:min(620px,62vw);max-height:620px}}\n''')
+          layout=Path('app/layout.tsx'); text=layout.read_text()
+          if 'import "./post-media-fixes.css";' not in text: text=text.replace('import "./performance-fixes.css";','import "./performance-fixes.css";\nimport "./post-media-fixes.css";')
           layout.write_text(text)
           PY
       - name: Commit fixes
