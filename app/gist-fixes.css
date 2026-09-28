@@ -5,11 +5,8 @@
 .gist-meta button { color:#6d28d9; font-weight:700; text-decoration:none; border:0; background:transparent; padding:0; }
 .gist-status a { color:#6d28d9; text-decoration:none; font-weight:700; }
 .gist-status a:visited { color:#6d28d9; }
-
-/* Photo Gists should use the full available card width and preserve the source ratio. */
 .gist-media,.response-media { display:block; width:100%; height:auto; max-height:none; object-fit:contain; border-radius:16px; background:#f4f4f5; margin-top:10px; }
 .response-media { max-height:none; margin-bottom:10px; }
-
 .modal-backdrop { position:fixed; inset:0; z-index:30; display:flex; align-items:center; justify-content:center; padding:18px; background:rgb(23 21 28 / 48%); }
 .modal-card { width:min(620px,100%); max-height:min(82vh,680px); overflow:auto; background:#fff; border:1px solid #eeeaf4; border-radius:22px; padding:20px; box-shadow:0 20px 60px rgb(35 16 71 / 18%); }
 .modal-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px; }
@@ -23,45 +20,43 @@
 .response-reply { margin-right:14px; margin-top:8px; color:#6d28d9; font-size:13px; font-weight:650; text-decoration:none; }
 .response-actions { display:flex; align-items:center; flex-wrap:wrap; gap:14px; margin-top:8px; }
 .response-actions .response-reply { margin:0; }
-
-/* Like state: the icon changes state, but the count/label always stays neutral gray. */
-.response-like,
-.response-like.liked,
-.reply-like,
-.reply-like.liked { display:inline-flex; align-items:center; gap:5px; color:#77727f !important; font-size:13px; font-weight:700; }
-.response-like svg,
-.reply-like svg { color:#77727f !important; }
-.response-like.liked svg,
-.reply-like.liked svg { color:#7c3aed !important; }
-.response-like .like-count,
-.response-like .action-count,
-.reply-like .like-count,
-.reply-like .action-count { color:#77727f !important; }
-
+.response-like,.response-like.liked,.reply-like,.reply-like.liked { display:inline-flex; align-items:center; gap:5px; color:#77727f !important; font-size:13px; font-weight:700; }
+.response-like svg,.reply-like svg { color:#77727f !important; }
+.response-like.liked svg,.reply-like.liked svg { color:#7c3aed !important; }
+.response-like .like-count,.response-like .action-count,.reply-like .like-count,.reply-like .action-count { color:#77727f !important; }
 .reply-actions { display:flex; align-items:center; flex-wrap:wrap; gap:12px; margin-top:7px; }
 .reply-actions .response-reply { margin:0; }
 .reply-box { margin-top:14px; padding:14px; border:1px solid #eeeaf4; border-radius:14px; background:#faf9fc; }
 .reply { display:flex; gap:10px; align-items:flex-start; }
 .reply + .reply { margin-top:14px; padding-top:14px; border-top:1px solid #eeeaf4; }
-
-/* Dark mode keeps the same state logic with a readable neutral gray. */
 html[data-theme="dark"] .gist-meta { border-color:#2b2732; color:#aaa4b1; }
-html[data-theme="dark"] .gist-like-meta,
-html[data-theme="dark"] .gist-like-meta svg { color:#aaa4b1 !important; }
-html[data-theme="dark"] .response-like,
-html[data-theme="dark"] .response-like.liked,
-html[data-theme="dark"] .reply-like,
-html[data-theme="dark"] .reply-like.liked,
-html[data-theme="dark"] .response-like svg,
-html[data-theme="dark"] .reply-like svg,
-html[data-theme="dark"] .response-like .like-count,
-html[data-theme="dark"] .response-like .action-count,
-html[data-theme="dark"] .reply-like .like-count,
-html[data-theme="dark"] .reply-like .action-count { color:#aaa4b1 !important; }
-html[data-theme="dark"] .response-like.liked svg,
-html[data-theme="dark"] .reply-like.liked svg { color:#7c3aed !important; }
-
+html[data-theme="dark"] .gist-like-meta,html[data-theme="dark"] .gist-like-meta svg { color:#aaa4b1 !important; }
+html[data-theme="dark"] .response-like,html[data-theme="dark"] .response-like.liked,html[data-theme="dark"] .reply-like,html[data-theme="dark"] .reply-like.liked,html[data-theme="dark"] .response-like svg,html[data-theme="dark"] .reply-like svg,html[data-theme="dark"] .response-like .like-count,html[data-theme="dark"] .response-like .action-count,html[data-theme="dark"] .reply-like .like-count,html[data-theme="dark"] .reply-like .action-count { color:#aaa4b1 !important; }
+html[data-theme="dark"] .response-like.liked svg,html[data-theme="dark"] .reply-like.liked svg { color:#7c3aed !important; }
 @media (max-width:480px) { .dna-grid{grid-template-columns:1fr}.modal-backdrop{align-items:flex-end;padding:0}.modal-card{max-height:88vh;border-radius:22px 22px 0 0} }
-
-/* Link polish: Gista uses button-style navigation rather than browser underlines. */
 a,a:visited { text-decoration:none; }
+
+/* New Post detail architecture */
+.post-detail-content{padding-bottom:110px}
+.simple-header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #eeeaf4;background:#fff;position:sticky;top:0;z-index:10}
+.simple-header .icon-btn{justify-self:end}
+.back-link{display:inline-flex;align-items:center;gap:5px;border:0;background:transparent;color:#6d28d9;font-weight:700;padding:6px 0}
+.post-detail{overflow:hidden}
+.post-detail .post-head{padding:14px 16px}
+.post-detail .post-text{padding:0 16px}
+.post-detail .post-actions{padding:10px 16px 14px}
+.post-dna{border:0;background:transparent;color:#7c3aed;font-size:12px;font-weight:750;padding:0;cursor:pointer}
+.post-dna-panel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 16px 12px;padding:12px;border:1px solid #eeeaf4;border-radius:14px;background:#faf9fc}
+.post-dna-panel strong{grid-column:1/-1;color:#6d28d9}
+.post-dna-panel div{display:flex;flex-direction:column;gap:3px}
+.post-dna-panel span{font-size:11px;color:#8b8792}.post-dna-panel b{font-size:13px}
+.comments-section{margin-top:14px}.comments-section h2{margin:0 0 12px;font-size:20px}
+.comment-composer{background:#fff;border:1px solid #eeeaf4;border-radius:18px;padding:14px}
+.comment-composer textarea{display:block;width:100%;resize:vertical;border:0;outline:0;background:transparent;color:inherit;font:inherit;min-height:90px}
+.comment-composer textarea::placeholder{color:#9b96a3}
+.comment-composer-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
+.voice-record{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;color:#6d28d9;font-weight:700;padding:8px 0}.voice-record.recording{color:#dc2626}
+.comment-composer small{display:block;margin-top:8px;color:#77727f}
+.comments-list{margin-top:18px}.comment{padding:16px 0;border-bottom:1px solid #eeeaf4}.comment-head{display:flex;align-items:center;gap:10px}.comment-head>div{display:flex;flex-direction:column;gap:2px}.comment-head span{font-size:12px;color:#9b96a3}.comment>p{margin:10px 0 0;line-height:1.5}.comment-actions{display:flex;gap:16px;margin-top:10px}.comment-actions button{border:0;background:transparent;color:#77727f;display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;padding:0}.comment-actions button:first-child:hover{color:#7c3aed}
+html[data-theme="dark"] .simple-header,html[data-theme="dark"] .comment-composer{background:#17151c;border-color:#2b2732}html[data-theme="dark"] .post-dna-panel{background:#211b2b;border-color:#3a2d4d}html[data-theme="dark"] .comments-list .comment{border-color:#2b2732}html[data-theme="dark"] .comment-head span,html[data-theme="dark"] .comment-composer small{color:#aaa4b1}
+@media(max-width:480px){.simple-header{padding:12px 14px}.post-dna-panel{grid-template-columns:1fr}.comment-composer-actions{align-items:flex-end}.comment-composer-actions .primary{min-height:42px}}
