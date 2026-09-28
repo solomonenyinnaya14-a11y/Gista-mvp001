@@ -19,13 +19,19 @@
 .profile-gist .gist-status a{margin-left:2px;color:#6d28d9;text-decoration:none;font-weight:750;}
 .profile-gist-actions{margin-top:12px;}
 
-/* Post DNA is the formal detail layer, not an inline wall of metrics. */
+/* Post DNA is the formal detail layer: click Post DNA to reveal the actual DNA metrics. */
 .post-dna-panel{margin-top:12px;padding:14px;border:1px solid #e8e0f7;border-radius:16px;background:#faf8ff;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
 .post-dna-panel>strong{grid-column:1/-1;color:#6d28d9;font-size:15px;}
 .post-dna-panel>div{display:flex;flex-direction:column;gap:3px;padding:9px 10px;border-radius:11px;background:#fff;border:1px solid #eeeaf4;}
 .post-dna-panel>div span{font-size:11px;color:#8b8792;}
 .post-dna-panel>div b{font-size:14px;color:#17151c;}
 .post-dna-panel .dna-status{color:#15803d;}
+
+/* The profile page owns the formal purple verified badge. Do not render the legacy bare black check. */
+.profile-hero h1>.verified-badge{display:none!important;}
+
+/* Post DNA must never contain a Join-the-Gist/response composer. Comments remain in the separate Comments section. */
+.post-dna-panel .join-the-gist,.post-dna-panel .join-gist,.post-dna-panel .comment-composer,.post-dna-panel .reply-composer{display:none!important;}
 
 @media(min-width:700px){.formal-bottom-nav{width:680px;left:50%;right:auto;transform:translateX(-50%);border-radius:18px 18px 0 0;padding:0 14px;}}
 @media(max-width:480px){.formal-bottom-nav .nav-create{width:52px;height:52px;flex-basis:52px;border-radius:17px;}.post-dna-panel{grid-template-columns:1fr 1fr;}.profile-content .profile-gist,.feed .profile-gist{padding-left:18px;padding-right:18px;}}
