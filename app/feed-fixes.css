@@ -5,49 +5,20 @@
 .identity a:hover{text-decoration:none}
 .identity strong{display:block;color:inherit;text-decoration:none}
 
-/*
-   IMPORTANT: the feed image is rendered directly as an <img>, not inside a
-   .gist-media wrapper. Give the actual replaced element a stable box before
-   its resource loads. This prevents image decode/network completion from
-   changing the height of the feed while the user is scrolling.
-*/
-.post > img[alt="Gist photo"]{
-  display:block;
-  width:100%;
-  height:auto;
-  aspect-ratio:4 / 5;
-  object-fit:cover;
-  object-position:center;
-  border-radius:16px;
-  background:#f4f4f5;
-  margin-top:10px;
-  vertical-align:top;
-}
-
-/* Keep the selector used by any future/alternate feed renderer stable too. */
-.gist-media{
-  display:block;
-  width:100%;
-  height:auto;
-  aspect-ratio:4 / 5;
-  object-fit:cover;
-  object-position:center;
-  border-radius:16px;
-  background:#f4f4f5;
-  margin-top:10px;
-}
-
-.profile-gist img{
-  display:block;
-  width:100%;
-  height:auto;
-  aspect-ratio:4 / 5;
-  object-fit:cover;
-  border-radius:12px;
-  background:#f4f4f5;
-  vertical-align:top;
-}
-
-/* Let the browser's native scroll anchoring work normally now that media
-   dimensions are stable. */
+.post > img[alt="Gist photo"]{display:block;width:100%;height:auto;aspect-ratio:4 / 5;object-fit:cover;object-position:center;border-radius:16px;background:#f4f4f5;margin-top:10px;vertical-align:top}
+.gist-media{display:block;width:100%;height:auto;aspect-ratio:4 / 5;object-fit:cover;object-position:center;border-radius:16px;background:#f4f4f5;margin-top:10px}
+.profile-gist img{display:block;width:100%;height:auto;aspect-ratio:4 / 5;object-fit:cover;border-radius:12px;background:#f4f4f5;vertical-align:top}
 .post,.feed{overflow-anchor:auto}
+
+/* Home cards intentionally mirror the clean profile-feed card architecture. */
+.home-gist{border:1px solid #eeeaf4;border-radius:16px;padding:14px 18px;margin:0 10px;background:#fff}
+.home-gist-text{display:block;color:inherit;text-decoration:none}
+.home-gist-text .post-text{margin:10px 0 0;font-size:16px;line-height:1.45}
+.home-gist-media{display:block;color:inherit;text-decoration:none;margin-top:10px;overflow:hidden;border-radius:12px}
+.home-gist-media img{display:block;width:100%;height:auto;aspect-ratio:4 / 5;object-fit:cover;background:#f4f4f5}
+.home-gist .voice-note{margin-top:10px}
+.home-gist-dna{margin-top:10px}
+.home-gist-dna a{margin-left:2px;color:#6d28d9;text-decoration:none;font-weight:750}
+.home-gist .actions{margin-top:12px}
+@media(min-width:700px){.home-gist{margin:0 8px}}
+@media(max-width:480px){.home-gist{margin:0 10px;padding:14px 16px}}
