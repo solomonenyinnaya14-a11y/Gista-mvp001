@@ -7,6 +7,7 @@ import "./voice-fixes.css";
 import "./theme.css";
 import "./action-theme-fixes.css";
 import "./performance-fixes.css";
+import "./formal-architecture.css";
 import VerifiedBadgeInjector from "@/components/VerifiedBadgeInjector";
 import ThemeProvider from "@/components/ThemeProvider";
 
