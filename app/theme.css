@@ -93,7 +93,8 @@ html[data-theme="dark"] .actions button,
 html[data-theme="dark"] .bottom-nav button,
 html[data-theme="dark"] .bottom-nav a,
 html[data-theme="dark"] .section-title>span,
-html[data-theme="dark"] .profile-metric span {
+html[data-theme="dark"] .profile-metric span,
+html[data-theme="dark"] .privacy-card p {
   color:#aaa4b1;
 }
 
@@ -106,7 +107,9 @@ html[data-theme="dark"] .profile-hero h1,
 html[data-theme="dark"] .profile-gist p,
 html[data-theme="dark"] .post-text,
 html[data-theme="dark"] .identity strong,
-html[data-theme="dark"] .section-title h2 {
+html[data-theme="dark"] .section-title h2,
+html[data-theme="dark"] .privacy-card h2,
+html[data-theme="dark"] .privacy-toggle {
   color:#f7f5fa;
 }
 
@@ -173,6 +176,12 @@ html[data-theme="dark"] .theme-note {
 .theme-note{margin:12px 0 0;color:#77727f;font-size:12px}
 @media(max-width:480px){.theme-options{gap:7px}.theme-option{min-height:78px;padding:10px 5px;font-size:11px}}
 
+/* Privacy controls keep the Gista purple accent instead of browser-default blue. */
+.privacy-card .privacy-toggle{display:flex;align-items:flex-start;gap:10px;margin:14px 0 0;font-size:15px;font-weight:650;line-height:1.35;cursor:pointer}
+.privacy-card .privacy-checkbox{width:19px;height:19px;min-width:19px;margin:1px 0 0;accent-color:#7c3aed;cursor:pointer}
+.privacy-card p{margin:7px 0 0 29px;color:#77727f;font-size:13px;line-height:1.5}
+html[data-theme="dark"] .privacy-card .privacy-checkbox{accent-color:#8b5cf6}
+
 /* Dark-mode readability: profile counts and labels must always remain visible. */
 html[data-theme="dark"] .profile-stats strong,
 html[data-theme="dark"] .profile-stats b {
@@ -187,4 +196,3 @@ html[data-theme="dark"] .profile-stats > span {
   opacity:1 !important;
   visibility:visible !important;
 }
-
