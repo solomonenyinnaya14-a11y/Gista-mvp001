@@ -70,3 +70,9 @@ html[data-theme="dark"] .simple-header,html[data-theme="dark"] .comment-composer
 .post-detail .comment-actions .response-like.liked svg,
 .post-detail .comment-actions .reply-like.liked,
 .post-detail .comment-actions .reply-like.liked svg { color:#7c3aed !important; }
+
+/* Like counts stay gray; only the heart changes to purple when liked. */
+.post-detail .comment-actions .response-like .like-count,
+.post-detail .comment-actions .reply-like .like-count,
+.post-detail .comment-actions .response-like.liked .like-count,
+.post-detail .comment-actions .reply-like.liked .like-count { color:#77727f !important; }
