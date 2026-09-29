@@ -14,3 +14,13 @@
 .comments-section .comment-actions button.response-like.liked svg,
 .comments-section .comment-actions button.reply-like.liked,
 .comments-section .comment-actions button.reply-like.liked svg{color:#7c3aed!important}
+
+
+/* Owner-only post options menu */
+.post-owner-menu{position:relative;display:flex;align-items:center;justify-content:flex-end;min-width:40px}
+.header-spacer{display:block;width:40px;height:40px}
+.post-menu{position:absolute;top:44px;right:0;z-index:50;min-width:160px;padding:6px;background:var(--card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.14)}
+.post-menu button{display:block;width:100%;padding:11px 12px;border:0;background:transparent;border-radius:8px;text-align:left;font:inherit;cursor:pointer;color:inherit}
+.post-menu button:hover{background:rgba(109,40,217,.08)}
+.post-menu button.danger{color:#dc2626}
+.post-menu button:disabled{opacity:.5;cursor:not-allowed}
