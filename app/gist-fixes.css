@@ -60,3 +60,13 @@ a,a:visited { text-decoration:none; }
 .comments-list{margin-top:18px}.comment{padding:16px 0;border-bottom:1px solid #eeeaf4}.comment-head{display:flex;align-items:center;gap:10px}.comment-head>div{display:flex;flex-direction:column;gap:2px}.comment-head span{font-size:12px;color:#9b96a3}.comment>p{margin:10px 0 0;line-height:1.5}.comment-actions{display:flex;gap:16px;margin-top:10px}.comment-actions button{border:0;background:transparent;color:#77727f;display:inline-flex;align-items:center;gap:5px;font-size:13px;font-weight:700;padding:0}.comment-actions button:first-child:hover{color:#7c3aed}
 html[data-theme="dark"] .simple-header,html[data-theme="dark"] .comment-composer{background:#17151c;border-color:#2b2732}html[data-theme="dark"] .post-dna-panel{background:#211b2b;border-color:#3a2d4d}html[data-theme="dark"] .comments-list .comment{border-color:#2b2732}html[data-theme="dark"] .comment-head span,html[data-theme="dark"] .comment-composer small{color:#aaa4b1}
 @media(max-width:480px){.simple-header{padding:12px 14px}.post-dna-panel{grid-template-columns:1fr}.comment-composer-actions{align-items:flex-end}.comment-composer-actions .primary{min-height:42px}}
+
+/* Response and reply likes: purple when liked, gray when not liked. */
+.post-detail .comment-actions .response-like,
+.post-detail .comment-actions .response-like svg,
+.post-detail .comment-actions .reply-like,
+.post-detail .comment-actions .reply-like svg { color:#77727f !important; }
+.post-detail .comment-actions .response-like.liked,
+.post-detail .comment-actions .response-like.liked svg,
+.post-detail .comment-actions .reply-like.liked,
+.post-detail .comment-actions .reply-like.liked svg { color:#7c3aed !important; }
