@@ -4,6 +4,8 @@
 /* Social-feed order: header -> media -> caption -> status -> actions. */
 .post{display:flex;flex-direction:column;content-visibility:auto;contain-intrinsic-size:680px 900px}
 .post>.post-head{order:1}
+.post>.post-media{order:2;display:block;width:100%;min-width:0}
+.post>.post-media .gist-media{display:block;width:100%;height:auto;max-width:100%;max-height:none;aspect-ratio:4 / 5;object-fit:cover;object-position:center;margin-top:10px;border-radius:16px;background:#f4f4f5}
 .post>img,.post>.voice-note{order:2}
 .post>.post-text{order:3}
 .post>.gist-status{order:4}
