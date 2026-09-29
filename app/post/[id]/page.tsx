@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Bookmark, Heart, Mic, MoreHorizontal, Share2, Square } from "lucide-react";
 import Link from "next/link";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import VoiceNote from "@/components/VoiceNote";
 
@@ -15,8 +15,8 @@ type Post = { id: string; author_id: string; body: string | null; content_type: 
 function Avatar({ profile }: { profile: Profile | null }) { return <div className="avatar">{profile?.avatar_url ? <img src={profile.avatar_url} alt="" className="avatar-image" /> : profile?.display_name?.[0]?.toUpperCase() ?? "G"}</div>; }
 
 export default function PostPage() {
-  const { id } = useParams<{ id: string }>(); const router = useRouter(); const searchParams = useSearchParams(); const supabase = useMemo(() => createClient(), []);
-  const [post, setPost] = useState<Post | null>(null); const [comments, setComments] = useState<Comment[]>([]); const [userId, setUserId] = useState<string | null>(null); const [text, setText] = useState(""); const [voice, setVoice] = useState<Blob | null>(null); const [recording, setRecording] = useState(false); const [seconds, setSeconds] = useState(0); const [replyText, setReplyText] = useState<Record<string, string>>({}); const [replyVoice, setReplyVoice] = useState<Record<string, Blob | null>>({}); const [replyRecording, setReplyRecording] = useState<string | null>(null); const [replySeconds, setReplySeconds] = useState<Record<string, number>>({}); const [likeCount, setLikeCount] = useState(0); const [liked, setLiked] = useState(false); const [saved, setSaved] = useState(false); const [showDetails, setShowDetails] = useState(searchParams.get("dna") === "1"); const [openReply, setOpenReply] = useState<string | null>(null); const [error, setError] = useState(""); const [loading, setLoading] = useState(true);
+  const { id } = useParams<{ id: string }>(); const router = useRouter(); const supabase = useMemo(() => createClient(), []);
+  const [post, setPost] = useState<Post | null>(null); const [comments, setComments] = useState<Comment[]>([]); const [userId, setUserId] = useState<string | null>(null); const [text, setText] = useState(""); const [voice, setVoice] = useState<Blob | null>(null); const [recording, setRecording] = useState(false); const [seconds, setSeconds] = useState(0); const [replyText, setReplyText] = useState<Record<string, string>>({}); const [replyVoice, setReplyVoice] = useState<Record<string, Blob | null>>({}); const [replyRecording, setReplyRecording] = useState<string | null>(null); const [replySeconds, setReplySeconds] = useState<Record<string, number>>({}); const [likeCount, setLikeCount] = useState(0); const [liked, setLiked] = useState(false); const [saved, setSaved] = useState(false); const [showDetails, setShowDetails] = useState(false); const [openReply, setOpenReply] = useState<string | null>(null); const [error, setError] = useState(""); const [loading, setLoading] = useState(true);
   const recorder = useRef<MediaRecorder | null>(null); const chunks = useRef<Blob[]>([]); const timer = useRef<ReturnType<typeof setInterval> | null>(null); const replyRecorder = useRef<MediaRecorder | null>(null); const replyChunks = useRef<Blob[]>([]); const replyTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async (currentUserId: string | null) => {
@@ -46,6 +46,8 @@ export default function PostPage() {
     setComments(rawComments.map((item) => ({ ...item, profiles: profiles.get(item.author_id) ?? null, likes: commentLikes[item.id] ?? 0, liked: likedComments.has(item.id), replies: (item.replies ?? []).map((reply) => ({ ...reply, profiles: profiles.get(reply.author_id) ?? null, likes: replyLikes[reply.id] ?? 0, liked: likedReplies.has(reply.id) })) })));
     setLoading(false);
   }, [id, supabase]);
+
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("dna") === "1") setShowDetails(true); }, []);
 
   useEffect(() => { let active = true; void supabase.auth.getSession().then(({ data }) => { if (!active) return; const uid = data.session?.user?.id ?? null; setUserId(uid); void load(uid); }); return () => { active = false; }; }, [load, supabase]);
   function authRequired() { if (userId) return true; router.push(`/auth?returnTo=${encodeURIComponent(`/post/${id}`)}`); return false; }
