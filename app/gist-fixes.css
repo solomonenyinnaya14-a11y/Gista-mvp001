@@ -82,3 +82,17 @@ html[data-theme="dark"] .simple-header,html[data-theme="dark"] .comment-composer
 .post-detail.comments-only-context .post-text{display:none!important}
 .post-detail.comments-only-context .post-head{padding-bottom:10px}
 .post-detail.comments-only-context{border-bottom:1px solid #eeeaf4}
+
+/* Post detail action states: Like and Save are state-driven, not position-driven. */
+.post-detail .post-actions .post-like-action,
+.post-detail .post-actions .post-like-action svg,
+.post-detail .post-actions .post-save-action,
+.post-detail .post-actions .post-save-action svg { color:#77727f !important; }
+.post-detail .post-actions .post-like-action.liked,
+.post-detail .post-actions .post-like-action.liked svg,
+.post-detail .post-actions .post-save-action.saved,
+.post-detail .post-actions .post-save-action.saved svg { color:#7c3aed !important; }
+.post-detail .post-actions .post-like-action span,
+.post-detail .post-actions .post-save-action span { color:#77727f !important; }
+/* A comments-only route contains the discussion only; never show the parent Post card there. */
+.comments-section.comments-only { margin-top:0; }
