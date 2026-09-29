@@ -49,3 +49,7 @@
 @media(max-width:480px){
   .profile-wrap{padding-top:10px}
 }
+
+/* Post detail media must occupy the same full content width as Home feed media. */
+.post-detail .post-media{align-self:stretch!important;width:100%!important;max-width:none!important;display:block!important;overflow:hidden}
+.post-detail .post-media .gist-media{display:block!important;align-self:stretch!important;width:100%!important;min-width:100%!important;max-width:none!important;height:auto!important;min-height:0!important;aspect-ratio:4 / 5!important;object-fit:cover!important;object-position:center!important}
