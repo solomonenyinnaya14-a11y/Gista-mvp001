@@ -27,7 +27,7 @@ export default function HomePage(){
   if (!user) return <LandingPage />;
 
   return <main className="app-shell">
-    <header className="topbar"><div className="brand"><div className="brand-icon">G</div><span>Gista</span></div><Link className="icon-btn" aria-label="Settings" href="/settings"><Settings size={20}/></Link></header>
+    <header className="topbar"><div className="brand"><span className="gista-mark gista-mark-feed" aria-hidden="true"><span>G</span></span><span>Gista</span></div><Link className="icon-btn" aria-label="Settings" href="/settings"><Settings size={20}/></Link></header>
     <section className="content">
       <div className="feed-tabs">{["Discover","Following","Trending"].map(x=><button key={x} className={tab===x?"tab active":"tab"} onClick={()=>setTab(x)}>{x}</button>)}</div>
       <div className="composer"><Link href="/profile" className="avatar">{profile?.avatar_url?<img src={profile.avatar_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}}/>:displayName[0]?.toUpperCase()||"G"}</Link><Link className="composer-input" href="/create">What&apos;s on your mind, {displayName.split(" ")[0]}?</Link><Link className="create-btn" aria-label="Create Post" href="/create"><Plus size={19}/></Link></div>
