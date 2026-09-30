@@ -7,6 +7,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import VoiceNote from "@/components/VoiceNote";
 import BottomNav from "@/components/BottomNav";
+import LandingPage from "@/components/LandingPage";
 
 type Profile={id:string;display_name:string|null;username:string|null;avatar_url:string|null};
 type FeedRow={id:string;body:string|null;content_type:string;media_url:string|null;category:string;status:string|null;created_at:string;author_id:string;voice_duration_seconds:number|null;display_name:string|null;username:string|null;avatar_url:string|null;likes:number|string;responses:number|string;shares:number|string;saves:number|string;liked:boolean;saved:boolean};
@@ -23,6 +24,8 @@ export default function HomePage(){
   async function toggleSave(p:Post){if(!user){router.push("/auth");return}setBusy(p.id+"s");const next=!p.saved;const r=next?await supabase.from("saves").insert({post_id:p.id,user_id:user.id}):await supabase.from("saves").delete().eq("post_id",p.id).eq("user_id",user.id);if(!r.error)setPosts(x=>x.map(i=>i.id===p.id?{...i,saved:next,saves:Math.max(0,i.saves+(next?1:-1))}:i));setBusy(null)}
   async function sharePost(p:Post){if(!user){router.push("/auth");return}const url=location.origin+"/post/"+p.id;try{if(navigator.share)await navigator.share({title:"Gista",text:p.body??"Check out this Post on Gista",url});else await navigator.clipboard.writeText(url);const r=await supabase.from("shares").insert({post_id:p.id,user_id:user.id});if(!r.error)setPosts(x=>x.map(i=>i.id===p.id?{...i,shares:i.shares+1}:i))}catch{}}
   const displayName=profile?.display_name??user?.email?.split("@")[0]??"Gista User";
+  if (!user) return <LandingPage />;
+
   return <main className="app-shell">
     <header className="topbar"><div className="brand"><div className="brand-icon">G</div><span>Gista</span></div><Link className="icon-btn" aria-label="Settings" href="/settings"><Settings size={20}/></Link></header>
     <section className="content">
