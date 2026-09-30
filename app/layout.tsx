@@ -13,7 +13,7 @@ import ThemeProvider from "@/components/ThemeProvider";
 
 export const metadata: Metadata = {
   title: "Gista",
-  description: "Explore. Share. Talk. Belong.",
+  description: "Where people talk, share, connect, and belong. Every Post Starts a Conversation.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
