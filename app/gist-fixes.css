@@ -101,3 +101,15 @@ html[data-theme="dark"] .simple-header,html[data-theme="dark"] .comment-composer
 .comments-list .comment-head .avatar,
 .comments-list .reply .comment-head .avatar { display:grid !important; width:40px; height:40px; min-width:40px; border-radius:50%; overflow:hidden; background:#eee7ff; color:#6d28d9; place-items:center; }
 .comments-list .comment-head .avatar-image { display:block; width:100%; height:100%; object-fit:cover; border-radius:50%; }
+
+.post-edit-card{margin:14px 10px;background:#fff;border:1px solid #eeeaf4;border-radius:18px;padding:16px}
+.post-edit-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.post-edit-header strong{font-size:18px}
+.post-edit-header button{color:#6d28d9;font-weight:700}
+.post-edit-card textarea{display:block;width:100%;min-height:120px;border:1px solid #ddd8e6;border-radius:13px;padding:13px;font:inherit;line-height:1.45;resize:vertical;outline:none}
+.post-edit-card textarea:focus,.post-edit-card select:focus{border-color:#7c3aed}
+.post-edit-card select{display:block;width:100%;margin-top:12px;border:1px solid #ddd8e6;border-radius:13px;padding:13px;background:#fff;font:inherit}
+.post-edit-photo{margin-top:12px}
+.post-edit-photo label{display:flex;align-items:center;justify-content:center;gap:7px;padding:11px;border:1px dashed #c9bfdc;border-radius:13px;color:#6d28d9;font-weight:700;cursor:pointer}
+.post-edit-photo img{display:block;width:100%;max-height:520px;object-fit:contain;border-radius:14px;background:#f4f4f5;margin-top:10px}
+.post-edit-card .primary{margin-top:14px}
