@@ -83,3 +83,6 @@
 .settings-skeleton-card span:first-child{width:35%;height:18px}
 .settings-skeleton-card span:last-child{width:48%}
 @media(max-width:480px){.settings-skeleton-card{border-radius:0;margin:0 0 10px;border-left:0;border-right:0}}
+
+/* Search people results: identity first, bio underneath, matching normal profile hierarchy. */
+.search-person-result>.post-head{order:1}.search-person-result>.bio{order:2;margin:12px 0 0;font-size:15px;line-height:1.45;color:#57525f;}
