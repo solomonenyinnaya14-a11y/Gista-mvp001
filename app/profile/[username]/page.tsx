@@ -70,6 +70,9 @@ export default function PublicProfile() {
     const ownPosts = (postsResult.data ?? []) as Array<Omit<PublicPost, "likes" | "responses" | "saves" | "shares" | "liked" | "saved">>;
     const postIds = ownPosts.map((post) => post.id);
     if (!postIds.length) { setPosts([]); setPrivateMessage(""); setLoading(false); return; }
+    setPosts(ownPosts.map((post) => ({ ...post, likes: 0, responses: 0, saves: 0, shares: 0, liked: false, saved: false })));
+    setPrivateMessage("");
+    setLoading(false);
     const [likesResult, responsesResult, savesResult, engagementResult] = await Promise.all([
       supabase.from("likes").select("post_id,user_id").in("post_id", postIds),
       supabase.from("responses").select("post_id").in("post_id", postIds),
