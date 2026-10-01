@@ -3,6 +3,28 @@
 import { useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+type VerifiedAccount = { profile_id: string; badge_color: string; username: string };
+let verifiedPromise: Promise<VerifiedAccount[]> | null = null;
+
+function loadVerifiedAccounts(supabase: ReturnType<typeof createClient>) {
+  if (!verifiedPromise) {
+    verifiedPromise = supabase
+      .from("verified_profiles")
+      .select("profile_id,badge_color,profiles!verified_profiles_profile_id_fkey(username)")
+      .then(({ data, error }) => {
+        if (error || !data) return [];
+        return (data as any[])
+          .map((row) => ({
+            profile_id: row.profile_id,
+            badge_color: row.badge_color || "#6D28D9",
+            username: Array.isArray(row.profiles) ? row.profiles[0]?.username : row.profiles?.username,
+          }))
+          .filter((row): row is VerifiedAccount => Boolean(row.username));
+      });
+  }
+  return verifiedPromise;
+}
+
 function addBadge(target: Element, color: string) {
   if (target.querySelector(":scope > [data-gista-verified-badge]")) return;
 
@@ -25,6 +47,7 @@ function addBadge(target: Element, color: string) {
     "font-weight:800",
     "line-height:1",
     "vertical-align:middle",
+    "flex:0 0 auto",
   ].join(";");
 
   target.appendChild(badge);
@@ -33,61 +56,53 @@ function addBadge(target: Element, color: string) {
 export default function VerifiedBadgeInjector() {
   useEffect(() => {
     let cancelled = false;
+    let observer: MutationObserver | undefined;
     const supabase = createClient();
 
-    async function loadVerifiedAccounts() {
-      const { data: verified } = await supabase
-        .from("verified_profiles")
-        .select("profile_id,badge_color");
-
-      if (cancelled || !verified?.length) return;
-
-      const ids = verified.map((item) => item.profile_id);
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id,username")
-        .in("id", ids);
-
+    const apply = (verifiedAccounts: VerifiedAccount[]) => {
       if (cancelled) return;
 
-      const verifiedByUsername = new Map<string, string>();
-      const colorsById = new Map(verified.map((item) => [item.profile_id, item.badge_color || "#6D28D9"]));
-      (profiles ?? []).forEach((profile) => {
-        if (profile.username) verifiedByUsername.set(profile.username, colorsById.get(profile.id) ?? "#6D28D9");
+      const byUsername = new Map(verifiedAccounts.map((account) => [account.username, account.badge_color]));
+
+      document.querySelectorAll("strong").forEach((name) => {
+        if (name.querySelector(":scope > [data-gista-verified-badge]")) return;
+        const parent = name.parentElement;
+        if (!parent || parent.classList.contains("notification-identity")) return;
+
+        const href = parent.closest("a")?.getAttribute("href") ?? "";
+        const usernameLine = Array.from(parent.children).find(
+          (child) => child !== name && child.tagName === "SPAN"
+        )?.textContent ?? "";
+
+        const linkedUsername = href.startsWith("/profile/") ? decodeURIComponent(href.slice(9)) : "";
+        const username =
+          linkedUsername ||
+          (usernameLine.match(/@([A-Za-z0-9_]+)/)?.[1] ?? "");
+
+        const color = byUsername.get(username);
+        if (color) addBadge(name, color);
       });
 
-      const apply = () => {
-        verifiedByUsername.forEach((color, username) => {
-          const profileLinks = document.querySelectorAll(`a[href="/profile/${CSS.escape(username)}"] strong`);
-          profileLinks.forEach((target) => addBadge(target, color));
+      const ownProfileUsername = document.querySelector(".profile-username")?.textContent?.trim().replace(/^@/, "");
+      if (ownProfileUsername) {
+        const color = byUsername.get(ownProfileUsername);
+        if (color) {
+          const name = document.querySelector(".profile-username")?.previousElementSibling;
+          if (name) addBadge(name, color);
+        }
+      }
+    };
 
-          document.querySelectorAll("strong").forEach((name) => {
-            if (name.matches("[data-gista-verified-badge]")) return;
-            const parent = name.parentElement;
-            if (!parent || parent.classList.contains("notification-identity")) return;
-            const usernameLine = Array.from(parent.children).find((child) => child !== name && child.tagName === "SPAN");
-            if (usernameLine?.textContent?.includes(`@${username}`)) addBadge(name, color);
-          });
-
-          const ownProfileUsername = document.querySelector(".profile-username");
-          if (ownProfileUsername?.textContent?.trim() === `@${username}`) {
-            const name = ownProfileUsername.previousElementSibling;
-            if (name) addBadge(name, color);
-          }
-        });
-      };
-
-      apply();
-      const observer = new MutationObserver(() => apply());
+    loadVerifiedAccounts(supabase).then((accounts) => {
+      if (cancelled) return;
+      apply(accounts);
+      observer = new MutationObserver(() => apply(accounts));
       observer.observe(document.body, { childList: true, subtree: true });
-      return () => observer.disconnect();
-    }
+    });
 
-    let cleanup: (() => void) | undefined;
-    void loadVerifiedAccounts().then((fn) => { cleanup = fn; });
     return () => {
       cancelled = true;
-      cleanup?.();
+      observer?.disconnect();
     };
   }, []);
 
