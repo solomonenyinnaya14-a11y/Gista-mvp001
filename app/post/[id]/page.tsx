@@ -22,28 +22,26 @@ export default function PostPage() {
   const load = useCallback(async (currentUserId: string | null) => {
     setError("");
     const [postResult, commentsResult, likeResult, savedResult] = await Promise.all([
-      supabase.from("posts").select("id,author_id,body,content_type,media_url,voice_duration_seconds,category,status,created_at").eq("id", id).single(),
-      supabase.from("responses").select("id,body,content_type,media_url,voice_duration_seconds,created_at,author_id,replies(id,body,content_type,media_url,voice_duration_seconds,created_at,author_id)").eq("post_id", id).order("created_at", { ascending: true }),
+      supabase.from("posts").select("id,author_id,body,content_type,media_url,voice_duration_seconds,category,status,created_at,profiles:profiles!posts_author_id_fkey(id,display_name,username,avatar_url)").eq("id", id).single(),
+      supabase.from("responses").select("id,body,content_type,media_url,voice_duration_seconds,created_at,author_id,profiles:profiles!responses_author_id_fkey(id,display_name,username,avatar_url),replies(id,body,content_type,media_url,voice_duration_seconds,created_at,author_id,profiles:profiles!replies_author_id_fkey(id,display_name,username,avatar_url))").eq("post_id", id).order("created_at", { ascending: true }),
       supabase.from("likes").select("post_id,user_id", { count: "exact" }).eq("post_id", id),
       currentUserId ? supabase.from("saves").select("post_id").eq("post_id", id).eq("user_id", currentUserId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ]);
     if (postResult.error) { setError(postResult.error.message); setLoading(false); return; }
-    const rawPost = postResult.data as Omit<Post, "profiles">;
-    const rawComments = (commentsResult.data ?? []) as Array<Omit<Comment, "profiles" | "replies" | "likes" | "liked"> & { replies: Array<Omit<Reply, "profiles" | "likes" | "liked">> }>;
+    const rawPost = postResult.data as any;
+    const rawComments = (commentsResult.data ?? []) as any[];
     if (commentsResult.error) setError(commentsResult.error.message);
     const commentIds = rawComments.map((item) => item.id); const replyIds = rawComments.flatMap((item) => (item.replies ?? []).map((reply) => reply.id));
     const authorIds = [rawPost.author_id, ...rawComments.map((item) => item.author_id), ...rawComments.flatMap((item) => (item.replies ?? []).map((reply) => reply.author_id))]; const uniqueAuthorIds = [...new Set(authorIds)];
-    const [profilesResult, commentLikesResult, replyLikesResult, myLikeResult] = await Promise.all([
-      supabase.from("profiles").select("id,display_name,username,avatar_url").in("id", uniqueAuthorIds),
+    const [commentLikesResult, replyLikesResult, myLikeResult] = await Promise.all([
       commentIds.length ? supabase.from("response_likes").select("response_id,user_id").in("response_id", commentIds) : Promise.resolve({ data: [] as { response_id: string; user_id: string }[] }),
       replyIds.length ? supabase.from("reply_likes").select("reply_id,user_id").in("reply_id", replyIds) : Promise.resolve({ data: [] as { reply_id: string; user_id: string }[] }),
       currentUserId ? supabase.from("likes").select("post_id").eq("post_id", id).eq("user_id", currentUserId).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    ]);
-    const profiles = new Map((profilesResult.data ?? []).map((profile) => [profile.id, profile as Profile])); const commentLikes: Record<string, number> = {}; const replyLikes: Record<string, number> = {}; const likedComments = new Set<string>(); const likedReplies = new Set<string>();
+    ]); const commentLikes: Record<string, number> = {}; const replyLikes: Record<string, number> = {}; const likedComments = new Set<string>(); const likedReplies = new Set<string>();
     (commentLikesResult.data ?? []).forEach((item) => { commentLikes[item.response_id] = (commentLikes[item.response_id] ?? 0) + 1; if (item.user_id === currentUserId) likedComments.add(item.response_id); });
     (replyLikesResult.data ?? []).forEach((item) => { replyLikes[item.reply_id] = (replyLikes[item.reply_id] ?? 0) + 1; if (item.user_id === currentUserId) likedReplies.add(item.reply_id); });
-    setPost({ ...rawPost, profiles: profiles.get(rawPost.author_id) ?? null }); setLikeCount(likeResult.count ?? 0); setLiked(Boolean(myLikeResult.data)); setSaved(Boolean(savedResult.data));
-    setComments(rawComments.map((item) => ({ ...item, profiles: profiles.get(item.author_id) ?? null, likes: commentLikes[item.id] ?? 0, liked: likedComments.has(item.id), replies: (item.replies ?? []).map((reply) => ({ ...reply, profiles: profiles.get(reply.author_id) ?? null, likes: replyLikes[reply.id] ?? 0, liked: likedReplies.has(reply.id) })) })));
+    setPost({ ...rawPost, profiles: Array.isArray(rawPost.profiles) ? rawPost.profiles[0] ?? null : rawPost.profiles ?? null }); setLikeCount(likeResult.count ?? 0); setLiked(Boolean(myLikeResult.data)); setSaved(Boolean(savedResult.data));
+    setComments(rawComments.map((item) => ({ ...item, profiles: Array.isArray(item.profiles) ? item.profiles[0] ?? null : item.profiles ?? null, likes: commentLikes[item.id] ?? 0, liked: likedComments.has(item.id), replies: (item.replies ?? []).map((reply) => ({ ...reply, profiles: Array.isArray(reply.profiles) ? reply.profiles[0] ?? null : reply.profiles ?? null, likes: replyLikes[reply.id] ?? 0, liked: likedReplies.has(reply.id) })) })));
     setLoading(false);
   }, [id, supabase]);
 
