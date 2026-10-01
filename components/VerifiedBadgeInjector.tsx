@@ -61,16 +61,12 @@ export default function VerifiedBadgeInjector() {
           const profileLinks = document.querySelectorAll(`a[href="/profile/${CSS.escape(username)}"] strong`);
           profileLinks.forEach((target) => addBadge(target, color));
 
-          document.querySelectorAll(".identity:not(.notification-identity)").forEach((identity) => {
-            const usernameLine = identity.querySelector(":scope > span");
-            const name = identity.querySelector(":scope > strong");
-            if (usernameLine?.textContent?.includes(`@${username}`) && name) addBadge(name, color);
-          });
-
-          document.querySelectorAll(".reply-content").forEach((reply) => {
-            const usernameLine = reply.querySelector(":scope > span");
-            const name = reply.querySelector(":scope > strong");
-            if (usernameLine?.textContent?.includes(`@${username}`) && name) addBadge(name, color);
+          document.querySelectorAll("strong").forEach((name) => {
+            if (name.matches("[data-gista-verified-badge]")) return;
+            const parent = name.parentElement;
+            if (!parent || parent.classList.contains("notification-identity")) return;
+            const usernameLine = Array.from(parent.children).find((child) => child !== name && child.tagName === "SPAN");
+            if (usernameLine?.textContent?.includes(`@${username}`)) addBadge(name, color);
           });
 
           const ownProfileUsername = document.querySelector(".profile-username");
