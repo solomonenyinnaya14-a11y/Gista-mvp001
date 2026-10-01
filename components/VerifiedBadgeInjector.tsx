@@ -8,19 +8,19 @@ let verifiedPromise: Promise<VerifiedAccount[]> | null = null;
 
 function loadVerifiedAccounts(supabase: ReturnType<typeof createClient>) {
   if (!verifiedPromise) {
-    verifiedPromise = supabase
-      .from("verified_profiles")
-      .select("profile_id,badge_color,profiles!verified_profiles_profile_id_fkey(username)")
-      .then(({ data, error }) => {
-        if (error || !data) return [];
-        return (data as any[])
-          .map((row) => ({
-            profile_id: row.profile_id,
-            badge_color: row.badge_color || "#6D28D9",
-            username: Array.isArray(row.profiles) ? row.profiles[0]?.username : row.profiles?.username,
-          }))
-          .filter((row): row is VerifiedAccount => Boolean(row.username));
-      });
+    verifiedPromise = (async () => {
+      const { data, error } = await supabase
+        .from("verified_profiles")
+        .select("profile_id,badge_color,profiles!verified_profiles_profile_id_fkey(username)");
+      if (error || !data) return [];
+      return (data as any[])
+        .map((row) => ({
+          profile_id: row.profile_id,
+          badge_color: row.badge_color || "#6D28D9",
+          username: Array.isArray(row.profiles) ? row.profiles[0]?.username : row.profiles?.username,
+        }))
+        .filter((row) => Boolean(row.username)) as VerifiedAccount[];
+    })();
   }
   return verifiedPromise;
 }
