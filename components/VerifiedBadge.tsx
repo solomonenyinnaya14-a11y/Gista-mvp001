@@ -1,5 +1,3 @@
-import { BadgeCheck } from "lucide-react";
-
 export default function VerifiedBadge() {
   return (
     <span
@@ -9,12 +7,21 @@ export default function VerifiedBadge() {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
+        width: 13,
+        height: 13,
+        marginLeft: 3,
+        marginRight: 3,
+        borderRadius: "50%",
+        background: "#6D28D9",
+        color: "#fff",
+        fontSize: 8,
+        fontWeight: 800,
+        lineHeight: 1,
         verticalAlign: "middle",
-        marginLeft: 4,
-        color: "#6D28D9",
+        flex: "0 0 auto",
       }}
     >
-      <BadgeCheck size={17} strokeWidth={2.7} aria-hidden="true" />
+      ✓
     </span>
   );
 }
