@@ -68,3 +68,18 @@
 .post.post-detail>.post-text{order:initial!important}
 .post.post-detail>.post-meta{order:initial!important}
 .post.post-detail>.post-actions{order:initial!important}
+
+/* Fast route loading: show app-shaped placeholders instead of plain text. */
+.loading-skeleton-list{padding:12px 10px;display:flex;flex-direction:column;gap:10px}
+.loading-skeleton-row{height:72px;background:#fff;border:1px solid #eeeaf4;border-radius:16px;padding:14px;display:flex;align-items:center;gap:12px}
+.loading-skeleton-avatar{width:40px;height:40px;min-width:40px;border-radius:50%;background:linear-gradient(90deg,#eeeaf4 25%,#f8f6fb 37%,#eeeaf4 63%);background-size:400% 100%;animation:gista-route-shimmer 1.15s ease-in-out infinite}
+.loading-skeleton-lines{display:grid;gap:9px;flex:1}
+.loading-skeleton-lines i{display:block;height:11px;border-radius:999px;background:linear-gradient(90deg,#eeeaf4 25%,#f8f6fb 37%,#eeeaf4 63%);background-size:400% 100%;animation:gista-route-shimmer 1.15s ease-in-out infinite}
+.loading-skeleton-lines i:first-child{width:58%}
+.loading-skeleton-lines i:last-child{width:82%}
+.settings-loading{padding:10px 0 30px}
+.settings-skeleton-card{width:min(680px,100%);margin:10px auto;background:#fff;border:1px solid #eeeaf4;border-radius:18px;padding:18px;display:grid;gap:12px}
+.settings-skeleton-card span{display:block;height:13px;width:72%;border-radius:999px;background:linear-gradient(90deg,#eeeaf4 25%,#f8f6fb 37%,#eeeaf4 63%);background-size:400% 100%;animation:gista-route-shimmer 1.15s ease-in-out infinite}
+.settings-skeleton-card span:first-child{width:35%;height:18px}
+.settings-skeleton-card span:last-child{width:48%}
+@media(max-width:480px){.settings-skeleton-card{border-radius:0;margin:0 0 10px;border-left:0;border-right:0}}
