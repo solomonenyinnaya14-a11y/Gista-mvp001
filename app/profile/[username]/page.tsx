@@ -55,13 +55,12 @@ export default function PublicProfile() {
     const { data, error } = await supabase.from("profiles").select("id,username,display_name,bio,avatar_url,cover_url,is_private,following_private").eq("username", username).single();
     if (error || !data) { setProfile(null); setIsVerified(false); setLoading(false); return; }
     if (user?.id === data.id) { router.replace("/profile"); return; }
-    const [followState, statsResult, postsResult, verificationResult] = await Promise.all([
+    const [followState, statsResult, postsResult] = await Promise.all([
       user ? supabase.from("follows").select("follower_id").eq("follower_id", user.id).eq("following_id", data.id).maybeSingle() : Promise.resolve({ data: null }),
       supabase.rpc("get_profile_stats", { target_profile_id: data.id }),
       supabase.from("posts").select("id,body,content_type,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", data.id).order("created_at", { ascending: false }).limit(30),
-      supabase.from("verified_profiles").select("profile_id").eq("profile_id", data.id).maybeSingle(),
     ]);
-    const verification = verificationResult.data;
+    const { data: verification } = await supabase.from("verified_profiles").select("profile_id").eq("profile_id", data.id).maybeSingle();
     const profileStats = statsResult.data?.[0] as { gists?: number; posts?: number; followers?: number; following?: number } | undefined;
     const isFollowing = !!followState.data;
     setProfile(data as Profile); setIsVerified(!!verification); setFollowing(isFollowing);
@@ -103,37 +102,28 @@ export default function PublicProfile() {
   async function toggleFollow() {
     if (!me) { router.push("/auth"); return; }
     if (!profile || me.id === profile.id) return;
-    const wasFollowing = following;
-    setBusy("follow");
-    setFollowing(!wasFollowing);
-    setCounts((current) => ({ ...current, followers: Math.max(0, current.followers + (wasFollowing ? -1 : 1)) }));
-    const { error } = wasFollowing
-      ? await supabase.from("follows").delete().eq("follower_id", me.id).eq("following_id", profile.id)
-      : await supabase.from("follows").insert({ follower_id: me.id, following_id: profile.id });
-    if (error) {
-      setFollowing(wasFollowing);
-      setCounts((current) => ({ ...current, followers: Math.max(0, current.followers + (wasFollowing ? 1 : -1)) }));
+    if (following) {
+      const { error } = await supabase.from("follows").delete().eq("follower_id", me.id).eq("following_id", profile.id);
+      if (!error) { setFollowing(false); setCounts((current) => ({ ...current, followers: Math.max(0, current.followers - 1) })); }
+      return;
     }
-    setBusy(null);
+    const { error } = await supabase.from("follows").insert({ follower_id: me.id, following_id: profile.id });
+    if (!error) { setFollowing(true); setCounts((current) => ({ ...current, followers: current.followers + 1 })); }
   }
 
   async function toggleLike(post: PublicPost) {
     if (!me) { router.push("/auth"); return; }
     setBusy(post.id + "l");
-    const wasLiked = post.liked;
-    setPosts((current) => current.map((item) => item.id === post.id ? { ...item, liked: !wasLiked, likes: Math.max(0, item.likes + (wasLiked ? -1 : 1)) } : item));
-    const result = wasLiked ? await supabase.from("likes").delete().eq("post_id", post.id).eq("user_id", me.id) : await supabase.from("likes").insert({ post_id: post.id, user_id: me.id });
-    if (result.error) setPosts((current) => current.map((item) => item.id === post.id ? { ...item, liked: wasLiked, likes: Math.max(0, item.likes + (wasLiked ? 1 : -1)) } : item));
+    const result = post.liked ? await supabase.from("likes").delete().eq("post_id", post.id).eq("user_id", me.id) : await supabase.from("likes").insert({ post_id: post.id, user_id: me.id });
+    if (!result.error) setPosts((current) => current.map((item) => item.id === post.id ? { ...item, liked: !item.liked, likes: item.likes + (item.liked ? -1 : 1) } : item));
     setBusy(null);
   }
 
   async function toggleSave(post: PublicPost) {
     if (!me) { router.push("/auth"); return; }
     setBusy(post.id + "s");
-    const wasSaved = post.saved;
-    setPosts((current) => current.map((item) => item.id === post.id ? { ...item, saved: !wasSaved, saves: Math.max(0, item.saves + (wasSaved ? -1 : 1)) } : item));
-    const result = wasSaved ? await supabase.from("saves").delete().eq("post_id", post.id).eq("user_id", me.id) : await supabase.from("saves").insert({ post_id: post.id, user_id: me.id });
-    if (result.error) setPosts((current) => current.map((item) => item.id === post.id ? { ...item, saved: wasSaved, saves: Math.max(0, item.saves + (wasSaved ? 1 : -1)) } : item));
+    const result = post.saved ? await supabase.from("saves").delete().eq("post_id", post.id).eq("user_id", me.id) : await supabase.from("saves").insert({ post_id: post.id, user_id: me.id });
+    if (!result.error) setPosts((current) => current.map((item) => item.id === post.id ? { ...item, saved: !item.saved, saves: Math.max(0, item.saves + (item.saved ? -1 : 1)) } : item));
     setBusy(null);
   }
 
