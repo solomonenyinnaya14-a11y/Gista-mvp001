@@ -32,7 +32,6 @@ export default function PostPage() {
     const rawComments = (commentsResult.data ?? []) as any[];
     if (commentsResult.error) setError(commentsResult.error.message);
     const commentIds = rawComments.map((item) => item.id); const replyIds = rawComments.flatMap((item) => (item.replies ?? []).map((reply) => reply.id));
-    const authorIds = [rawPost.author_id, ...rawComments.map((item) => item.author_id), ...rawComments.flatMap((item) => (item.replies ?? []).map((reply) => reply.author_id))]; const uniqueAuthorIds = [...new Set(authorIds)];
     const [commentLikesResult, replyLikesResult, myLikeResult] = await Promise.all([
       commentIds.length ? supabase.from("response_likes").select("response_id,user_id").in("response_id", commentIds) : Promise.resolve({ data: [] as { response_id: string; user_id: string }[] }),
       replyIds.length ? supabase.from("reply_likes").select("reply_id,user_id").in("reply_id", replyIds) : Promise.resolve({ data: [] as { reply_id: string; user_id: string }[] }),
