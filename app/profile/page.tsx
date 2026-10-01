@@ -54,6 +54,8 @@ export default function ProfilePage() {
     const rawPosts = (postsResult.data ?? []) as Array<Omit<Post, "likes" | "comments" | "saves" | "shares" | "liked" | "saved">>;
     const ids = rawPosts.map((post) => post.id);
     if (!ids.length) { setPosts([]); setLoading(false); return; }
+    setPosts(rawPosts.map((post) => ({ ...post, likes: 0, comments: 0, saves: 0, shares: 0, liked: false, saved: false })));
+    setLoading(false);
     const [likesResult, commentsResult, savesResult, engagementResult] = await Promise.all([
       supabase.from("likes").select("post_id,user_id").in("post_id", ids),
       supabase.from("responses").select("post_id").in("post_id", ids),
@@ -71,7 +73,6 @@ export default function ProfilePage() {
     const liked = new Set((likesResult.data ?? []).filter((row: { user_id: string }) => row.user_id === user.id).map((row: { post_id: string }) => row.post_id));
     const saved = new Set((savesResult.data ?? []).filter((row: { user_id: string }) => row.user_id === user.id).map((row: { post_id: string }) => row.post_id));
     setPosts(rawPosts.map((post) => ({ ...post, likes: likeCounts[post.id] ?? 0, comments: commentCounts[post.id] ?? 0, saves: saveCounts[post.id] ?? 0, shares: shareCounts[post.id] ?? 0, liked: liked.has(post.id), saved: saved.has(post.id) })));
-    setLoading(false);
   }
 
   useEffect(() => { void loadProfile(); }, [supabase]);
