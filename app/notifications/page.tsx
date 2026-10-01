@@ -11,11 +11,52 @@ type Notification={id:string;type:string;post_id:string|null;response_id:string|
 function notificationAction(type:string){if(type==="follow")return "followed you.";if(type==="like")return "liked your Post.";if(type==="response")return "commented on your Post.";if(type==="reply")return "replied to your Comment.";if(type==="mention")return "mentioned you.";if(type==="gist_active")return "Your Post is now active.";if(type==="gist_trending")return "Your Post is now trending.";return "interacted with you.";}
 
 export default function NotificationsPage(){
-  const supabase=useMemo(()=>createClient(),[]);const[items,setItems]=useState<Notification[]>([]);const[loading,setLoading]=useState(true);const[userId,setUserId]=useState<string|null>(null);
-  async function load(currentId?:string){const id=currentId??userId;if(!id){setItems([]);setLoading(false);return;}setLoading(true);const{data,error}=await supabase.from("notifications").select("id,type,post_id,response_id,read_at,created_at,actor:profiles!notifications_actor_id_fkey(id,display_name,username,avatar_url)").eq("recipient_id",id).order("created_at",{ascending:false}).limit(100);if(error){setItems([]);setLoading(false);return;}const normalized=((data??[])as any[]).map(item=>({...item,actor:Array.isArray(item.actor)?item.actor[0]??null:item.actor??null}));const actorIds=[...new Set(normalized.map(item=>item.actor?.id).filter(Boolean))];const{data:verifiedRows}=actorIds.length?await supabase.from("verified_profiles").select("profile_id").in("profile_id",actorIds):{data:[]as any[]};const verifiedIds=new Set((verifiedRows??[]).map((row:{profile_id:string})=>row.profile_id));setItems(normalized.map(item=>({...item,actorVerified:Boolean(item.actor?.id&&verifiedIds.has(item.actor.id))}))as Notification[]);setLoading(false);}
-  useEffect(()=>{let active=true;let channel:ReturnType<typeof supabase.channel>|null=null;supabase.auth.getSession().then(({data})=>{if(!active)return;const id=data.session?.user?.id??null;setUserId(id);void load(id??undefined);if(id)channel=supabase.channel("notifications-"+id).on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications",filter:"recipient_id=eq."+id},()=>void load(id)).on("postgres_changes",{event:"UPDATE",schema:"public",table:"notifications",filter:"recipient_id=eq."+id},()=>void load(id)).subscribe();});return()=>{active=false;if(channel)void supabase.removeChannel(channel);};},[supabase]);
+  const supabase=useMemo(()=>createClient(),[]);
+  const[items,setItems]=useState<Notification[]>([]);
+  const[loading,setLoading]=useState(true);
+  const[userId,setUserId]=useState<string|null>(null);
+
+  async function load(currentId?:string){
+    const id=currentId??userId;
+    if(!id){setItems([]);setLoading(false);return;}
+    setLoading(true);
+    const{data,error}=await supabase.from("notifications").select("id,type,post_id,response_id,read_at,created_at,actor:profiles!notifications_actor_id_fkey(id,display_name,username,avatar_url)").eq("recipient_id",id).order("created_at",{ascending:false}).limit(100);
+    if(error){setItems([]);setLoading(false);return;}
+    const normalized=((data??[])as any[]).map(item=>({...item,actor:Array.isArray(item.actor)?item.actor[0]??null:item.actor??null})) as Notification[];
+    setItems(normalized);
+    setLoading(false);
+
+    // Verification is secondary UI data. Never block the notification list on it.
+    const actorIds=[...new Set(normalized.map(item=>item.actor?.id).filter(Boolean))];
+    if(actorIds.length){
+      const{data:verifiedRows}=await supabase.from("verified_profiles").select("profile_id").in("profile_id",actorIds);
+      const verifiedIds=new Set((verifiedRows??[]).map((row:{profile_id:string})=>row.profile_id));
+      setItems(current=>current.map(item=>({...item,actorVerified:Boolean(item.actor?.id&&verifiedIds.has(item.actor.id))})));
+    }
+  }
+
+  useEffect(()=>{
+    let active=true;
+    let channel:ReturnType<typeof supabase.channel>|null=null;
+    supabase.auth.getSession().then(({data})=>{
+      if(!active)return;
+      const id=data.session?.user?.id??null;
+      setUserId(id);
+      void load(id??undefined);
+      if(id)channel=supabase.channel("notifications-"+id)
+        .on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications",filter:"recipient_id=eq."+id},()=>void load(id))
+        .on("postgres_changes",{event:"UPDATE",schema:"public",table:"notifications",filter:"recipient_id=eq."+id},()=>void load(id))
+        .subscribe();
+    });
+    return()=>{active=false;if(channel)void supabase.removeChannel(channel);};
+  },[supabase]);
+
   async function markAllRead(){if(!userId)return;const now=new Date().toISOString();const{error}=await supabase.from("notifications").update({read_at:now}).eq("recipient_id",userId).is("read_at",null);if(!error)setItems(current=>current.map(item=>({...item,read_at:item.read_at??now})));}
   async function openNotification(item:Notification){if(!userId||item.read_at)return;const now=new Date().toISOString();const{error}=await supabase.from("notifications").update({read_at:now}).eq("id",item.id).eq("recipient_id",userId);if(!error)setItems(current=>current.map(n=>n.id===item.id?{...n,read_at:now}:n));}
   const unread=items.filter(item=>!item.read_at).length;
-  return <main className="app-shell"><section className="content"><header className="simple-header"><Link href="/" aria-label="Back to Home"><ArrowLeft size={18}/></Link><strong>Notifications</strong><button onClick={markAllRead} disabled={!unread} aria-label="Mark all notifications as read"><CheckCheck size={18}/></button></header>{loading?<p>Loading notifications…</p>:!userId?<div className="empty-state"><h3>Sign in to see notifications</h3><Link className="primary small" href="/auth">Sign in</Link></div>:items.length===0?<div className="empty-state"><h3>No notifications yet</h3><p>Likes, follows, comments and replies will appear here.</p></div>:<section className="feed">{items.map(item=>{const href=item.post_id?"/post/"+item.post_id:item.actor?.username?"/profile/"+item.actor.username:null;const actorName=item.actor?.display_name??item.actor?.username??"Someone";const content=<div className={item.read_at?"profile-gist notification-item":"profile-gist notification-item unread"}><div className="post-head"><div className="avatar notification-avatar">{item.actor?.avatar_url?<img src={item.actor.avatar_url} alt="" loading="lazy"/>:item.actor?.display_name?.[0]?.toUpperCase()??"G"}</div><div className="identity notification-identity"><div className="notification-message"><span className="notification-actor-name">{actorName}</span>{item.actorVerified&&<VerifiedBadge/>}<span className="notification-action">{notificationAction(item.type)}</span></div><span>{new Date(item.created_at).toLocaleString()}</span></div></div></div>;return href?<Link className="notification-link" key={item.id} href={href} onClick={()=>void openNotification(item)}>{content}</Link>:<button className="notification-link notification-button" key={item.id} onClick={()=>void openNotification(item)}>{content}</button>;})}</section>}</section><BottomNav active="notifications"/></main>;
+
+  return <main className="app-shell"><section className="content">
+    <header className="simple-header"><Link href="/" aria-label="Back to Home"><ArrowLeft size={18}/></Link><strong>Notifications</strong><button onClick={markAllRead} disabled={!unread} aria-label="Mark all notifications as read"><CheckCheck size={18}/></button></header>
+    {loading?<div className="loading-skeleton-list" aria-label="Loading notifications" aria-busy="true">{[1,2,3].map(i=><div className="loading-skeleton-row" key={i}><span className="loading-skeleton-avatar"/><span className="loading-skeleton-lines"><i/><i/></span></div>)}</div>:!userId?<div className="empty-state"><h3>Sign in to see notifications</h3><Link className="primary small" href="/auth">Sign in</Link></div>:items.length===0?<div className="empty-state"><h3>No notifications yet</h3><p>Likes, follows, comments and replies will appear here.</p></div>:<section className="feed">{items.map(item=>{const href=item.post_id?"/post/"+item.post_id:item.actor?.username?"/profile/"+item.actor.username:null;const actorName=item.actor?.display_name??item.actor?.username??"Someone";const content=<div className={item.read_at?"profile-gist notification-item":"profile-gist notification-item unread"}><div className="post-head"><div className="avatar notification-avatar">{item.actor?.avatar_url?<img src={item.actor.avatar_url} alt="" loading="lazy"/>:item.actor?.display_name?.[0]?.toUpperCase()??"G"}</div><div className="identity notification-identity"><div className="notification-message"><span className="notification-actor-name">{actorName}</span>{item.actorVerified&&<VerifiedBadge/>}<span className="notification-action">{notificationAction(item.type)}</span></div><span>{new Date(item.created_at).toLocaleString()}</span></div></div></div>;return href?<Link className="notification-link" key={item.id} href={href} onClick={()=>void openNotification(item)}>{content}</Link>:<button className="notification-link notification-button" key={item.id} onClick={()=>void openNotification(item)}>{content}</button>;})}</section>}
+  </section><BottomNav active="notifications"/></main>;
 }
