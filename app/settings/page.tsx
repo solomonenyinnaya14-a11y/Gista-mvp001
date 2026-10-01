@@ -5,106 +5,68 @@ import {createClient} from "@/lib/supabase/client";
 import {signOut} from "@/lib/auth";
 import {useTheme} from "@/components/ThemeProvider";
 
-type ThemeOption = "light" | "dark" | "system";
-
-type ProfileSettings = {is_private?: boolean|null; following_private?: boolean|null};
-
-type ActivityCount = {post_id?: string; id?: string};
+type ThemeOption="light"|"dark"|"system";
+type ProfileSettings={is_private?:boolean|null;following_private?:boolean|null};
+type ActivityCount={post_id?:string;id?:string};
 
 export default function SettingsPage(){
   const supabase=useMemo(()=>createClient(),[]);
-  const {theme,setTheme}=useTheme();
-  const [email,setEmail]=useState("");
-  const [privateAccount,setPrivateAccount]=useState(false);
-  const [followingPrivate,setFollowingPrivate]=useState(false);
-  const [loading,setLoading]=useState(true);
-  const [message,setMessage]=useState("");
-  const [totalLikes,setTotalLikes]=useState(0);
-  const [totalResponses,setTotalResponses]=useState(0);
+  const{theme,setTheme}=useTheme();
+  const[email,setEmail]=useState("");
+  const[privateAccount,setPrivateAccount]=useState(false);
+  const[followingPrivate,setFollowingPrivate]=useState(false);
+  const[loading,setLoading]=useState(true);
+  const[message,setMessage]=useState("");
+  const[totalLikes,setTotalLikes]=useState(0);
+  const[totalResponses,setTotalResponses]=useState(0);
 
   useEffect(()=>{
     let active=true;
     const load=async()=>{
-      const {data}=await supabase.auth.getUser();
+      // getSession is local-first; don't wait on a separate auth network round trip.
+      const{data:{session}}=await supabase.auth.getSession();
       if(!active)return;
-      setEmail(data.user?.email??"");
-      if(data.user){
-        const [{data:p},{data:posts}]=await Promise.all([
-          supabase.from("profiles").select("is_private,following_private").eq("id",data.user.id).maybeSingle(),
-          supabase.from("posts").select("id").eq("author_id",data.user.id)
-        ]);
-        if(!active)return;
-        const settings=p as ProfileSettings|null;
-        setPrivateAccount(Boolean(settings?.is_private));
-        setFollowingPrivate(Boolean(settings?.following_private));
-        const postIds=(posts??[]).map((post:ActivityCount)=>post.id).filter((id):id is string=>Boolean(id));
-        if(postIds.length){
-          const [{count:likes,error:likesError},{count:responses,error:responsesError}]=await Promise.all([
-            supabase.from("likes").select("post_id",{count:"exact",head:true}).in("post_id",postIds),
-            supabase.from("responses").select("id",{count:"exact",head:true}).in("post_id",postIds)
-          ]);
-          if(!active)return;
-          if(likesError||responsesError)setMessage(likesError?.message??responsesError?.message??"Could not load activity.");
-          setTotalLikes(likes??0);
-          setTotalResponses(responses??0);
-        }
-      }
-      if(active)setLoading(false);
+      const user=session?.user;
+      if(!user){setLoading(false);return;}
+      setEmail(user.email??"");
+
+      // Account/profile data can load together.
+      const[{data:p},{data:posts}]=await Promise.all([
+        supabase.from("profiles").select("is_private,following_private").eq("id",user.id).maybeSingle(),
+        supabase.from("posts").select("id").eq("author_id",user.id)
+      ]);
+      if(!active)return;
+      const settings=p as ProfileSettings|null;
+      setPrivateAccount(Boolean(settings?.is_private));
+      setFollowingPrivate(Boolean(settings?.following_private));
+      setLoading(false);
+
+      // Activity totals are secondary; they must never block the settings screen.
+      const postIds=(posts??[]).map((post:ActivityCount)=>post.id).filter((id):id is string=>Boolean(id));
+      if(!postIds.length)return;
+      const[{count:likes,error:likesError},{count:responses,error:responsesError}]=await Promise.all([
+        supabase.from("likes").select("post_id",{count:"exact",head:true}).in("post_id",postIds),
+        supabase.from("responses").select("id",{count:"exact",head:true}).in("post_id",postIds)
+      ]);
+      if(!active)return;
+      if(likesError||responsesError)setMessage(likesError?.message??responsesError?.message??"Could not load activity.");
+      setTotalLikes(likes??0);
+      setTotalResponses(responses??0);
     };
     void load();
     return()=>{active=false};
   },[supabase]);
 
-  async function privacy(v:boolean){
-    setPrivateAccount(v);
-    const {data:{user}}=await supabase.auth.getUser();
-    if(user){
-      const {error}=await supabase.from("profiles").update({is_private:v}).eq("id",user.id);
-      setMessage(error?error.message:"Privacy updated.");
-    }
-  }
+  async function privacy(v:boolean){setPrivateAccount(v);const{data:{user}}=await supabase.auth.getUser();if(user){const{error}=await supabase.from("profiles").update({is_private:v}).eq("id",user.id);setMessage(error?error.message:"Privacy updated.");}}
+  async function followingPrivacy(v:boolean){setFollowingPrivate(v);const{data:{user}}=await supabase.auth.getUser();if(user){const{error}=await supabase.from("profiles").update({following_private:v}).eq("id",user.id);setMessage(error?error.message:"Following privacy updated.");}}
+  async function deleteAccount(){const{data:{user}}=await supabase.auth.getUser();if(!user)return;if(!confirm("Delete your Gista account permanently? This cannot be undone?"))return;setMessage("Deleting account…");const{data:{session}}=await supabase.auth.getSession();const base=process.env.NEXT_PUBLIC_SUPABASE_URL;if(!base||!session){setMessage("Unable to start account deletion.");return}const res=await fetch(base+"/functions/v1/delete-account",{method:"POST",headers:{Authorization:"Bearer "+session.access_token}});if(!res.ok){const body=await res.text();setMessage(body||"Account deletion failed.");return}await supabase.auth.signOut();location.href="/auth";}
 
-  async function followingPrivacy(v:boolean){
-    setFollowingPrivate(v);
-    const {data:{user}}=await supabase.auth.getUser();
-    if(user){
-      const {error}=await supabase.from("profiles").update({following_private:v}).eq("id",user.id);
-      setMessage(error?error.message:"Following privacy updated.");
-    }
-  }
-
-  async function deleteAccount(){
-    const {data:{user}}=await supabase.auth.getUser();
-    if(!user)return;
-    if(!confirm("Delete your Gista account permanently? This cannot be undone?"))return;
-    setMessage("Deleting account…");
-    const {data:{session}}=await supabase.auth.getSession();
-    const base=process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if(!base||!session){setMessage("Unable to start account deletion.");return}
-    const res=await fetch(base+"/functions/v1/delete-account",{method:"POST",headers:{Authorization:"Bearer "+session.access_token}});
-    if(!res.ok){const body=await res.text();setMessage(body||"Account deletion failed.");return}
-    await supabase.auth.signOut();
-    location.href="/auth";
-  }
-
-  return <main className="content"><header className="simple-header settings-header" style={{borderBottom:"0"}}><Link href="/profile">‹ Profile</Link><strong>Settings</strong></header>{loading?<p>Loading…</p>:<div className="feed">
+  return <main className="content"><header className="simple-header settings-header" style={{borderBottom:"0"}}><Link href="/profile">‹ Profile</Link><strong>Settings</strong></header>{loading?<div className="settings-loading" aria-label="Loading settings" aria-busy="true"><div className="settings-skeleton-card"><span/><span/><span/></div><div className="settings-skeleton-card"><span/><span/><span/><span/></div><div className="settings-skeleton-card"><span/><span/></div></div>:<div className="feed">
     <section className="create-card"><h2>Account</h2><p>{email}</p><Link className="primary small" href="/profile">Edit profile</Link></section>
-
-    <section className="create-card appearance-card">
-      <div className="appearance-heading"><div><h2>Appearance</h2><p>Choose how Gista looks on your device.</p></div></div>
-      <div className="theme-options" role="group" aria-label="Theme">
-        {([['light','☀️','Light'],['dark','🌙','Dark'],['system','📱','System Default']] as [ThemeOption,string,string][]).map(([value,icon,label])=><button key={value} type="button" className={`theme-option ${theme===value?'selected':''}`} onClick={()=>setTheme(value)} aria-pressed={theme===value}><span className="theme-option-icon">{icon}</span><span>{label}</span>{theme===value&&<span className="theme-check">✓</span>}</button>)}
-      </div>
-      <p className="theme-note">Gista purple branding and purple actions stay purple in every theme.</p>
-    </section>
-
+    <section className="create-card appearance-card"><div className="appearance-heading"><div><h2>Appearance</h2><p>Choose how Gista looks on your device.</p></div></div><div className="theme-options" role="group" aria-label="Theme">{([["light","☀️","Light"],["dark","🌙","Dark"],["system","📱","System Default"]] as [ThemeOption,string,string][]).map(([value,icon,label])=><button key={value} type="button" className={"theme-option "+(theme===value?"selected":"")} onClick={()=>setTheme(value)} aria-pressed={theme===value}><span className="theme-option-icon">{icon}</span><span>{label}</span>{theme===value&&<span className="theme-check">✓</span>}</button>)}</div><p className="theme-note">Gista purple branding and purple actions stay purple in every theme.</p></section>
     <section className="create-card"><h2>Your Gista activity</h2><div className="profile-metrics"><div className="profile-metric"><strong>{totalLikes}</strong><span>Total likes received</span></div><div className="profile-metric"><strong>{totalResponses}</strong><span>Total responses received</span></div></div></section>
     <section className="create-card"><h2>Notifications</h2><Link href="/notifications">Open notifications</Link></section>
     <section className="create-card privacy-card"><h2>Privacy</h2><label className="privacy-toggle"><input className="privacy-checkbox" type="checkbox" checked={privateAccount} onChange={e=>privacy(e.target.checked)}/><span>Private account</span></label><p>When enabled, your profile and Gists are visible only to you and people who follow you.</p><label className="privacy-toggle"><input className="privacy-checkbox" type="checkbox" checked={followingPrivate} onChange={e=>followingPrivacy(e.target.checked)}/><span>Private following</span></label><p>When enabled, only you can see the people you follow. Your following count remains visible.</p></section>
-    <section className="create-card"><h2>Safety</h2><Link href="/settings/blocked">Blocked users</Link></section>
-    <section className="create-card"><h2>Security</h2><Link href="/auth/forgot-password">Change/reset password</Link></section>
-    <section className="create-card"><h2>Help & Support</h2><div style={{display:"grid",gap:10}}><Link href="/help">Help Center</Link><Link href="/how-to-use">How to use Gista</Link></div></section>
-    <section className="create-card"><h2>About & Privacy</h2><div style={{display:"grid",gap:10}}><Link href="/about">About Gista</Link><Link href="/privacy">Privacy information</Link></div></section>
-    <section className="create-card"><button className="primary small" onClick={signOut}>Log out</button><button className="danger small" onClick={deleteAccount}>Delete account</button></section>{message&&<div className="auth-message">{message}</div>}
+    <section className="create-card"><h2>Safety</h2><Link href="/settings/blocked">Blocked users</Link></section><section className="create-card"><h2>Security</h2><Link href="/auth/forgot-password">Change/reset password</Link></section><section className="create-card"><h2>Help & Support</h2><div style={{display:"grid",gap:10}}><Link href="/help">Help Center</Link><Link href="/how-to-use">How to use Gista</Link></div></section><section className="create-card"><h2>About & Privacy</h2><div style={{display:"grid",gap:10}}><Link href="/about">About Gista</Link><Link href="/privacy">Privacy information</Link></div></section><section className="create-card"><button className="primary small" onClick={signOut}>Log out</button><button className="danger small" onClick={deleteAccount}>Delete account</button></section>{message&&<div className="auth-message">{message}</div>}
   </div>}</main>
 }
