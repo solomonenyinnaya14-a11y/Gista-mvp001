@@ -10,18 +10,18 @@ function addBadge(target: Element, color: string) {
   badge.dataset.gistaVerifiedBadge = "true";
   badge.setAttribute("title", "Verified account");
   badge.setAttribute("aria-label", "Verified account");
-  badge.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 1.8l2.1 1.7 2.7-.1 1 2.5 2.4 1.3-.6 2.7 1.5 2.2-1.5 2.2.6 2.7-2.4 1.3-1 2.5-2.7-.1-2.1 1.7-2.1-1.7-2.7.1-1-2.5-2.4-1.3.6-2.7-1.5-2.2 1.5-2.2-.6-2.7 2.4-1.3 1-2.5 2.7.1L12 1.8Z" fill="${color}"/><path d="m8.2 12.2 2.3 2.3 5.3-5.3" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  badge.textContent = "✓";
   badge.style.cssText = [
     "display:inline-flex",
     "align-items:center",
     "justify-content:center",
-    "width:15px",
-    "height:15px",
+    "width:13px",
+    "height:13px",
     "margin-left:3px",
     "border-radius:50%",
     `background:${color}`,
     "color:#fff",
-    "font-size:0",
+    "font-size:8px",
     "font-weight:800",
     "line-height:1",
     "vertical-align:middle",
