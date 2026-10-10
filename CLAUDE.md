@@ -32,6 +32,30 @@ Out of MVP: video, private DMs, reposts, mute, user-created communities, creator
 9. Preserve user data. Avoid destructive SQL, broad policy changes, and data migrations without explicit approval and a rollback plan.
 10. Avoid unrelated refactors, visual redesigns, new dependencies, or paid services unless necessary and approved.
 
+## Production boundary — read before making any change
+
+**Production is not the experiment branch.** The live app is served from `main` at Vercel project `gista-mvp1`; the existing Supabase project contains real application data.
+
+- Do not push commits directly to `main`, merge your own PR, manually promote a preview deployment, or change production environment variables without the founder's explicit approval.
+- Make changes on a dedicated branch from the latest `main`. Use a Vercel preview for review where available; do not treat a preview as production.
+- Before any production-affecting action, state what will change, why it is needed, what could break, how it will be verified, and how to roll it back. Wait for approval for database changes, auth/RLS/storage policy changes, environment settings, destructive operations, and production deployment/promotion.
+- Read-only inspection of production is acceptable when access is already configured and the operation is demonstrably read-only. Do not print, copy, or expose secrets or personal user data.
+- Never run `supabase db reset`, destructive SQL, broad data updates/deletes, or migration replay against the linked production project. Never use production as a test environment.
+- If the live schema or migration history is unclear, stop before making database changes. Request a schema-only dump or other specific evidence; do not guess.
+- If a check cannot be performed because credentials, browser tooling, or test data are unavailable, report it as **not tested**. Do not say “fixed” or “verified” without evidence.
+- Keep the founder's decision load low: investigate first, fix important reproducible blockers, defer cosmetic issues and unrelated warnings, and ask only when a decision or access is genuinely required.
+
+### Required handoff for every proposed fix
+Include in the PR summary:
+1. **Observed problem and evidence**
+2. **Root cause**
+3. **Smallest change made**
+4. **Checks run and their actual results**
+5. **Remaining uncertainty / manual test needed**
+6. **Risk and rollback notes** for anything affecting data, auth, storage, or deployment
+
+A successful build alone does not prove end-to-end behavior. Do not expand the scope just to make the code look cleaner.
+
 ## Known state at handoff (2026-10-10)
 - Latest `main` commit when this workspace was prepared: `2a51d8a795b00d5e59a49dad79026bb3e682cb63`.
 - Latest production deployment for that commit was reported READY by Vercel.
