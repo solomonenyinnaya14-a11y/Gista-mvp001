@@ -1,17 +1,13 @@
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-
-function safeNextPath(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
-  return value;
-}
+import { safeInternalPath } from "@/lib/safe-redirect";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const tokenHash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
-  const next = safeNextPath(searchParams.get("next"));
+  const next = safeInternalPath(searchParams.get("next"));
 
   if (!tokenHash || !type) {
     return NextResponse.redirect(new URL("/auth?error=missing_verification_token", request.url));
