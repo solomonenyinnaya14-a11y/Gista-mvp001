@@ -379,3 +379,16 @@
 @media(prefers-reduced-motion:reduce){
   .landing-login,.landing-signup,.landing-primary-cta{transition:none}
 }
+
+
+/* Preserve the author's paragraph spacing and line breaks in user-written content,
+   just like text posts on other social platforms. */
+.profile-gist-content > p,
+.profile-gist .post-text,
+.post-detail .post-text,
+.comments-list .comment > p,
+.comments-list .reply > p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
