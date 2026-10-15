@@ -140,5 +140,59 @@ export default function PublicProfile() {
   if (loading) return <main className="content"><p>Loading profile…</p></main>;
   if (!profile) return <main className="content"><p>Profile not found.</p></main>;
 
-  return <main className="profile-page"><header className="simple-header"><Link href="/">‹ Home</Link><strong>Profile</strong><span /></header><section className="profile-card"><div className="profile-cover">{profile.cover_url && <img src={profile.cover_url} alt="" />}</div><div className="profile-avatar">{profile.avatar_url ? <img src={profile.avatar_url} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : (profile.display_name?.[0]?.toUpperCase() ?? "G")}</div><h1>{profile.display_name ?? "Gista User"}{isVerified && <span title="Verified account" aria-label="Verified account" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 13, height: 13, marginLeft: 3, borderRadius: "50%", background: "#6D28D9", color: "#fff", fontSize: 8, fontWeight: 800, lineHeight: 1, verticalAlign: "middle" }}>✓</span>}</h1><p>@{profile.username}</p>{profile.bio && <p className="bio">{profile.bio}</p>}<div className="profile-stats"><Link href={"/profile/" + profile.username + "#posts"}><b>{counts.posts}</b><span>Posts</span></Link><Link href={"/profile/" + profile.username + "/followers"}><b>{counts.followers}</b><span>Followers</span></Link><Link href={"/profile/" + profile.username + "/following"}><b>{counts.following}</b><span>Following</span></Link></div>{me?.id !== profile.id && <button className="primary small" type="button" onClick={() => void toggleFollow()}>{following ? "Unfollow" : "Follow"}</button>}</section><section className="feed" id="posts"><h2>{counts.posts} Posts</h2>{privateMessage ? <div className="empty-state"><h3>Private account</h3><p>{privateMessage}</p></div> : posts.length === 0 ? <p>No Posts yet.</p> : posts.map((post) => <article className="post" key={post.id}><div className="post-head"><Link href={"/profile/" + profile.username} className="avatar" aria-label="Open profile">{profile.avatar_url ? <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : (profile.display_name?.[0]?.toUpperCase() ?? "G")}</Link><div className="identity"><Link href={"/profile/" + profile.username}><strong>{profile.display_name ?? "Gista User"}</strong></Link><span>@{profile.username} · {new Date(post.created_at).toLocaleString()}</span></div><span className="category">{post.category}</span></div><Link className="profile-gist-content" href={"/post/" + post.id}>{post.body && <p className="post-text">{post.body}</p>}{post.content_type === "photo" && post.media_url && <img src={post.media_url} alt="Post" style={{ width: "100%", borderRadius: 16, marginTop: 10 }} />}</Link>{post.content_type === "voice" && post.media_url && <div className="profile-gist-voice"><VoiceNote src={post.media_url} durationHint={post.voice_duration_seconds} /></div>}{post.status && <div className="gist-status"><span className={post.status === "trending" ? "hot" : "dot"}>{post.status === "trending" ? "🔥" : "●"}</span>{post.status.charAt(0).toUpperCase() + post.status.slice(1)}</div>}<div className="actions"><button type="button" className={post.liked ? "liked" : ""} onClick={() => void toggleLike(post)} disabled={busy === post.id + "l"} aria-label="Like Post"><Heart size={18} fill={post.liked ? "currentColor" : "none"} /> {post.likes}</button><Link className="feed-action-link" href={"/post/" + post.id + "?comments=1"} aria-label="Comments"><MessageCircle size={18} /> {post.responses}</Link><button type="button" onClick={() => void share(post)} aria-label="Share Post"><Share2 size={18} /> {post.shares}</button><button type="button" className={post.saved ? "saved-action" : ""} onClick={() => void toggleSave(post)} disabled={busy === post.id + "s"} aria-label="Save Post"><Bookmark size={18} fill={post.saved ? "currentColor" : "none"} /> {post.saves}</button></div></article>)}</section></main>;
+  return <main className="profile-page">
+    <header className="profile-header">
+      <Link href="/" className="profile-back">‹ Home</Link>
+      <strong>Profile</strong>
+      <span className="profile-settings" aria-hidden="true" />
+    </header>
+    <section className="profile-wrap">
+      <section className="profile-hero profile-hero-with-cover public-profile-hero">
+        <div className="profile-cover">{profile.cover_url && <img src={profile.cover_url} alt="" />}</div>
+        <div className="profile-photo-wrap">
+          <div className="profile-photo">
+            {profile.avatar_url ? <img src={profile.avatar_url} alt="Profile" /> : <span>{profile.display_name?.[0]?.toUpperCase() ?? "G"}</span>}
+          </div>
+        </div>
+        <h1>
+          {profile.display_name ?? "Gista User"}
+          {isVerified && <span title="Verified account" aria-label="Verified account" className="verified-badge" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 13, height: 13, marginLeft: 4, borderRadius: "50%", background: "#6D28D9", color: "#fff", fontSize: 8, fontWeight: 800, lineHeight: 1, verticalAlign: "middle" }}>✓</span>}
+        </h1>
+        <p className="profile-username">@{profile.username}</p>
+        {profile.bio && <p className="profile-bio">{profile.bio}</p>}
+        <div className="profile-stats">
+          <Link href={"/profile/" + profile.username + "#posts"}><strong>{counts.posts}</strong><span>Posts</span></Link>
+          <Link href={"/profile/" + profile.username + "/followers"}><strong>{counts.followers}</strong><span>Followers</span></Link>
+          <Link href={"/profile/" + profile.username + "/following"}><strong>{counts.following}</strong><span>Following</span></Link>
+        </div>
+        {me?.id !== profile.id && <div className="profile-actions"><button className="profile-primary" type="button" onClick={() => void toggleFollow()}>{following ? "Unfollow" : "Follow"}</button></div>}
+      </section>
+      <section className="profile-content" id="posts">
+        <div className="section-title"><h2>Posts</h2><span>{counts.posts}</span></div>
+        {privateMessage ? <div className="profile-empty"><h3>Private account</h3><p>{privateMessage}</p></div> : posts.length === 0 ? <div className="profile-empty"><h3>No Posts yet</h3><p>This user hasn’t shared any Posts yet.</p></div> : <div className="profile-gists">
+          {posts.map((post) => <article className="profile-gist" key={post.id}>
+            <div className="post-head">
+              <Link href={"/profile/" + profile.username} className="avatar" aria-label="Open profile">
+                {profile.avatar_url ? <img src={profile.avatar_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : (profile.display_name?.[0]?.toUpperCase() ?? "G")}
+              </Link>
+              <div className="identity"><Link href={"/profile/" + profile.username}><strong>{profile.display_name ?? "Gista User"}</strong></Link><span>@{profile.username} · {new Date(post.created_at).toLocaleString()}</span></div>
+              <span className="category">{post.category}</span>
+            </div>
+            <Link className="profile-gist-content" href={"/post/" + post.id}>
+              {post.body && <p className="post-text">{post.body}</p>}
+              {post.content_type === "photo" && post.media_url && <img src={post.media_url} alt="Post" style={{ width: "100%", borderRadius: 16, marginTop: 10 }} />}
+            </Link>
+            {post.content_type === "voice" && post.media_url && <div className="profile-gist-voice"><VoiceNote src={post.media_url} durationHint={post.voice_duration_seconds} /></div>}
+            {post.status && <div className="gist-status"><span className={post.status === "trending" ? "hot" : "dot"}>{post.status === "trending" ? "🔥" : "●"}</span>{post.status.charAt(0).toUpperCase() + post.status.slice(1)}</div>}
+            <div className="actions">
+              <button type="button" className={post.liked ? "liked" : ""} onClick={() => void toggleLike(post)} disabled={busy === post.id + "l"} aria-label="Like Post"><Heart size={18} fill={post.liked ? "currentColor" : "none"} /> {post.likes}</button>
+              <Link className="feed-action-link" href={"/post/" + post.id + "?comments=1"} aria-label="Comments"><MessageCircle size={18} /> {post.responses}</Link>
+              <button type="button" onClick={() => void share(post)} aria-label="Share Post"><Share2 size={18} /> {post.shares}</button>
+              <button type="button" className={post.saved ? "saved-action" : ""} onClick={() => void toggleSave(post)} disabled={busy === post.id + "s"} aria-label={post.saved ? "Unsave Post" : "Save Post"}><Bookmark size={18} fill={post.saved ? "currentColor" : "none"} /> {post.saves}</button>
+            </div>
+          </article>)}
+        </div>}
+      </section>
+    </section>
+  </main>;
 }
