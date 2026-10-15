@@ -1,0 +1,111 @@
+/* Profile cover/avatar layout fix: keep cover images inside a predictable frame
+   and reserve document flow space for the overlapping avatar. */
+.profile-hero.profile-hero-with-cover {
+  padding: 0 22px 24px;
+  overflow: hidden;
+}
+.profile-hero-with-cover .profile-cover {
+  position: relative;
+  width: calc(100% + 44px);
+  height: 180px;
+  margin: 0 -22px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #6d28d9, #4c1d95);
+  border-radius: 21px 21px 0 0;
+}
+.profile-hero-with-cover .profile-cover > img,
+.profile-card > .profile-cover > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+.profile-cover-camera {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  padding: 8px 10px;
+  border: 1px solid #ffffff70;
+  border-radius: 999px;
+  background: #211536a8;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.profile-hero-with-cover .profile-photo-wrap {
+  position: relative;
+  z-index: 1;
+  margin: -52px auto 14px;
+}
+.profile-hero-with-cover > h1 {
+  position: relative;
+  margin: 4px 0 3px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.profile-hero-with-cover .profile-bio {
+  overflow-wrap: anywhere;
+}
+.profile-card {
+  overflow: hidden;
+  padding-top: 0;
+}
+.profile-card > .profile-cover {
+  position: relative;
+  width: calc(100% + 56px);
+  height: 180px;
+  margin: 0 -28px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #6d28d9, #4c1d95);
+}
+.profile-card > .profile-avatar {
+  position: relative;
+  z-index: 1;
+  margin: -52px auto 12px;
+  width: 104px;
+  height: 104px;
+  overflow: hidden;
+  border: 4px solid #fff;
+  border-radius: 50%;
+}
+.profile-card > .profile-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.profile-card > h1 {
+  position: relative;
+  margin: 4px 0 2px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.profile-card > p {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .profile-hero.profile-hero-with-cover {
+    padding: 0 16px 22px;
+  }
+  .profile-hero-with-cover .profile-cover {
+    width: calc(100% + 32px);
+    margin: 0 -16px;
+    height: 160px;
+  }
+  .profile-card > .profile-cover {
+    width: calc(100% + 56px);
+    height: 160px;
+  }
+  .profile-hero-with-cover .profile-photo-wrap {
+    margin-top: -48px;
+  }
+  .profile-card > .profile-avatar {
+    margin-top: -48px;
+  }
+}
