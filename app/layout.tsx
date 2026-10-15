@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./profile-layout-fix.css";
 import "./feed-fixes.css";
 import "./gist-fixes.css";
 import "./ui-fixes.css";
