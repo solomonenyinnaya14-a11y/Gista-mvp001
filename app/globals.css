@@ -392,3 +392,28 @@
   overflow-wrap: anywhere;
   word-break: normal;
 }
+
+
+/* Keep profile post-header avatars identical to the circular avatars used in the home feed composer. The generic .profile-gist img rule is for post media and was rounding avatar photos into small rounded squares. */
+.profile-page .profile-gist .post-head > .avatar {
+  display: grid;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.profile-page .profile-gist .post-head > .avatar > img {
+  display: block;
+  flex: none;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 50%;
+  background: transparent;
+}
