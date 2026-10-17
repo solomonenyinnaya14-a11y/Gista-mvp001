@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -41,6 +41,7 @@ export default function AdminPage() {
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<Profile[]>([]);
   const [searching, setSearching] = useState(false);
+  const searchRequest = useRef(0);
   const [message, setMessage] = useState("");
 
   const loadDashboard = useCallback(async (uid: string, currentRole: Role) => {
@@ -147,22 +148,49 @@ export default function AdminPage() {
     setBusy("");
   }
 
-  async function findPeople() {
-    const q = search.trim();
-    if (q.length < 2) { setSearchResults([]); return; }
+  const findPeople = useCallback(async (query: string) => {
+    const q = query.trim();
+    const requestId = ++searchRequest.current;
+    if (!q) {
+      setSearchResults([]);
+      setSearching(false);
+      setError("");
+      return;
+    }
     setSearching(true); setMessage(""); setError("");
+    // Escape characters that have special meaning in PostgREST filter syntax.
     const safe = q.replace(/[,%()]/g, " ").trim();
+    if (!safe) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
     const [byUsername, byName] = await Promise.all([
       supabase.from("profiles").select("id,username,display_name").ilike("username", "%" + safe + "%").limit(8),
       supabase.from("profiles").select("id,username,display_name").ilike("display_name", "%" + safe + "%").limit(8),
     ]);
+    // Ignore responses from older searches if the user has typed more.
+    if (requestId !== searchRequest.current) return;
     if (byUsername.error || byName.error) setError(byUsername.error?.message ?? byName.error?.message ?? "Search failed.");
     const merged = new Map<string, Profile>();
     [...(byUsername.data ?? []), ...(byName.data ?? [])].forEach((p: Profile) => merged.set(p.id, p));
     setSearchResults([...merged.values()].filter((p) => !admins.some((a) => a.user_id === p.id)).slice(0, 10));
     setSearching(false);
-  }
+  }, [supabase, admins]);
 
+  // Search as the owner types, including after the very first character.
+  useEffect(() => {
+    if (role !== "owner") return;
+    const query = search.trim();
+    if (!query) {
+      searchRequest.current += 1;
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+    const timer = window.setTimeout(() => { void findPeople(query); }, 250);
+    return () => window.clearTimeout(timer);
+  }, [search, role, findPeople]);
   async function addAdmin(person: Profile) {
     if (role !== "owner") return;
     setBusy(person.id); setError(""); setMessage("");
@@ -235,8 +263,8 @@ export default function AdminPage() {
       {tab==="access"&&role==="owner"&&<section className="admin-list">
         <div className="admin-section-heading"><div><h2>Admin access</h2><p>You are the only owner. Only your owner account can grant or remove administrator access.</p></div><span>{admins.length} authorised</span></div>
         <div className="admin-owner-notice"><strong>Owner protection is active</strong><p>The founder/owner account cannot be removed or demoted from this screen. Added admins can manage reports and complaints, but cannot add or remove administrators.</p></div>
-        <div className="admin-search"><label htmlFor="admin-person-search">Find an existing Gista user</label><div><input id="admin-person-search" value={search} onChange={(e)=>setSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")void findPeople()}} placeholder="Search by username or display name"/><button style={button} onClick={()=>void findPeople()} disabled={searching}>{searching?"Searching…":"Search"}</button></div></div>
-        {searchResults.map((p)=><div className="admin-person-result" key={p.id}><div><strong>{p.display_name||"Gista user"}</strong><small>{p.username?"@"+p.username:"No username"} · {p.id.slice(0,8)}</small></div><button style={button} disabled={busy===p.id} onClick={()=>void addAdmin(p)}>Grant admin</button></div>)}
+        <div className="admin-search"><label htmlFor="admin-person-search">Find an existing Gista user</label><div><input id="admin-person-search" value={search} onChange={(e)=>setSearch(e.target.value)} onKeyDown={(e)=>{if(e.key==="Enter")void findPeople(search)}} placeholder="Type a username or display name…"/><button style={button} onClick={()=>void findPeople(search)} disabled={searching}>{searching?"Searching…":"Search"}</button></div></div>
+        {searching&&<p className="admin-subtitle">Searching Gista users…</p>}{!searching&&search.trim()&&searchResults.length===0&&!error&&<p className="admin-subtitle">No matching users found. Try another username or display name.</p>}{searchResults.map((p)=><div className="admin-person-result" key={p.id}><div><strong>{p.display_name||"Gista user"}</strong><small>{p.username?"@"+p.username:"No username"} · {p.id.slice(0,8)}</small></div><button style={button} disabled={busy===p.id} onClick={()=>void addAdmin(p)}>Grant admin</button></div>)}
         <h3 className="admin-roster-title">Authorised accounts</h3>
         {admins.map((a)=><div className="admin-person-result" key={a.user_id}><div><strong>{personName(a.user_id)}</strong><small>{a.role==="owner"?"Founder / Owner":"Administrator"} · Added {new Date(a.created_at).toLocaleDateString()}</small></div><span className={"admin-status "+(a.role==="owner"?"status-owner":"status-reviewed")}>{a.role}</span>{a.role==="admin"&&<button className="admin-secondary" disabled={busy===a.user_id} onClick={()=>void removeAdmin(a)}>Remove access</button>}</div>)}
       </section>}
