@@ -50,7 +50,7 @@ export default function AdminPage() {
       supabase.from("support_tickets").select("id,user_id,subject,message,status,admin_notes,created_at,updated_at,reviewed_by").order("created_at", { ascending: false }).limit(100),
     ]);
     if (reportError) setError("Could not load reports: " + reportError.message);
-    if (ticketError) setError((prev) => prev ? prev + " • " : "" + "Could not load complaints: " + ticketError.message);
+    if (ticketError) setError((prev) => (prev ? prev + " • " : "") + "Could not load complaints: " + ticketError.message);
     const reportList = (reportRows ?? []) as Report[];
     const ticketList = (ticketRows ?? []) as Ticket[];
     setReports(reportList);
