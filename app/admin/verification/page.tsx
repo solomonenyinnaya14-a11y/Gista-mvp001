@@ -12,7 +12,7 @@ type Candidate = {
   avatar_url: string | null; created_at: string; is_verified: boolean; verification_type: "personal" | "official" | null;
   gist_count: number; response_count: number; reply_count: number; report_count: number; pending_report_count: number;
 };
-type ReviewItem = { id: string; body?: string | null; content_type?: string; category?: string | null; status?: string; moderation_status?: string | null; created_at: string; media_url?: string | null; reason?: string; details?: string | null; content_type?: string; content_preview?: string | null; };
+type ReviewItem = { id: string; body?: string | null; content_type?: string; category?: string | null; status?: string; moderation_status?: string | null; created_at: string; media_url?: string | null; reason?: string; details?: string | null; content_preview?: string | null; };
 type ReviewData = {
   profile: { id: string; username: string | null; display_name: string | null; bio: string | null; avatar_url: string | null; cover_url: string | null; created_at: string; is_private: boolean };
   verification: { verification_type: "personal" | "official"; verified_at: string } | null;
