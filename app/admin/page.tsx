@@ -119,6 +119,23 @@ export default function AdminPage() {
     setBusy("");
   }
 
+  async function removeReportedPost(report: Report) {
+    if (!report.post_id || !role) return;
+    if (!confirm("Remove this Post from Gista? It will disappear from feeds and its discussion will be hidden from users. The report record will be kept for review.")) return;
+    setBusy(report.id); setMessage(""); setError("");
+    const { error: removeError } = await supabase.from("posts").update({ moderation_status: "removed" }).eq("id", report.post_id);
+    if (removeError) { setError("Could not remove Post: " + removeError.message); setBusy(""); return; }
+    const previousNote = (notes[report.id] ?? report.moderation_notes ?? "").trim();
+    const finalNote = [previousNote, "Post removed by an authorised Gista administrator."].filter(Boolean).join("\\n");
+    const { error: reportError } = await supabase.from("reports").update({
+      status: "action_taken", moderation_notes: finalNote, reviewed_by: userId, reviewed_at: new Date().toISOString(),
+    }).eq("id", report.id);
+    if (reportError) setError("The Post was removed, but the report status could not be updated: " + reportError.message);
+    else setMessage("Post removed from user-facing feeds. The report record has been retained.");
+    await loadDashboard(userId, role);
+    setBusy("");
+  }
+
   async function updateTicket(ticket: Ticket, status: string) {
     setBusy(ticket.id); setMessage(""); setError("");
     const { error: updateError } = await supabase.from("support_tickets").update({
@@ -201,7 +218,7 @@ export default function AdminPage() {
           {r.details&&<p className="admin-detail"><strong>Reporter’s details:</strong> {r.details}</p>}
           <div className="admin-meta"><span>Reported by <strong>{personName(r.reporter_id)}</strong></span>{r.target_user_id&&<span>Target <strong>{personName(r.target_user_id)}</strong></span>}{content[r.post_id??r.response_id??r.reply_id??""]?.author_id&&<span>Content author <strong>{personName(content[r.post_id??r.response_id??r.reply_id??""]!.author_id)}</strong></span>}</div>
           <label className="admin-field">Moderator notes<textarea value={notes[r.id]??r.moderation_notes??""} onChange={(e)=>setNotes((prev)=>({...prev,[r.id]:e.target.value}))} placeholder="Optional internal note…" maxLength={2000}/></label>
-          <div className="admin-actions"><button disabled={busy===r.id} style={{...button,background:"#f3effb",color:"#5b21b6"}} onClick={()=>void updateReport(r,"reviewed")}>Mark reviewed</button><button disabled={busy===r.id} style={button} onClick={()=>void updateReport(r,"action_taken")}>Action taken</button><button disabled={busy===r.id} className="admin-secondary" onClick={()=>void updateReport(r,"dismissed")}>Dismiss</button>{r.post_id&&<Link href={"/post/"+r.post_id} target="_blank" className="admin-link">View Post ↗</Link>}</div>
+          <div className="admin-actions"><button disabled={busy===r.id} style={{...button,background:"#f3effb",color:"#5b21b6"}} onClick={()=>void updateReport(r,"reviewed")}>Mark reviewed</button><button disabled={busy===r.id} style={button} onClick={()=>void updateReport(r,"action_taken")}>Action taken</button>{r.post_id&&<button disabled={busy===r.id} style={{...button,background:"#b42318"}} onClick={()=>void removeReportedPost(r)}>Remove Post</button>}<button disabled={busy===r.id} className="admin-secondary" onClick={()=>void updateReport(r,"dismissed")}>Dismiss</button>{r.post_id&&<Link href={"/post/"+r.post_id} target="_blank" className="admin-link">View Post ↗</Link>}</div>
         </article>)}
       </section>}
 
