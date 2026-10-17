@@ -16,7 +16,7 @@ const PROFILE_SELECT = "id,username,display_name,bio,avatar_url,cover_url";
 export default function ProfilePage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
-  const [profile, setProfile] = useState<Profile | null>(null);\n  const [isVerified, setIsVerified] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [edit, setEdit] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
@@ -37,12 +37,12 @@ export default function ProfilePage() {
     const user = session?.user ?? null;
     if (!user) { router.replace("/auth"); return; }
     const fallbackName = user.email?.split("@")[0] ?? "Gista User";
-    const [profileResult, statsResult, postsResult, verificationResult] = await Promise.all([
+    const [profileResult, statsResult, postsResult] = await Promise.all([
       supabase.from("profiles").select(PROFILE_SELECT).eq("id", user.id).maybeSingle(),
       supabase.rpc("get_profile_stats", { target_profile_id: user.id }),
-      supabase.from("posts").select("id,content_type,body,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", user.id).order("created_at", { ascending: false }).limit(30),\n      supabase.from("verified_profiles").select("profile_id").eq("profile_id", user.id).eq("verification_type", "official").maybeSingle(),
+      supabase.from("posts").select("id,content_type,body,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", user.id).order("created_at", { ascending: false }).limit(30),
     ]);
-    let data = profileResult.data as Profile | null;\n    setIsVerified(!!verificationResult.data);
+    let data = profileResult.data as Profile | null;
     if (!data && !profileResult.error) {
       const created = await supabase.from("profiles").insert({ id: user.id, display_name: fallbackName, username: null, bio: "" }).select(PROFILE_SELECT).single();
       data = created.data as Profile | null;
@@ -148,7 +148,7 @@ export default function ProfilePage() {
       <section className="profile-hero profile-hero-with-cover">
         <div className="profile-cover">{profile?.cover_url && <img src={profile.cover_url} alt=""/>}<label className="profile-cover-camera" aria-label="Change cover photo"><Camera size={16}/><span>{profile?.cover_url ? "Change cover" : "Add cover"}</span><input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={coverUploading} onChange={(event)=>{const file=event.target.files?.[0];if(file)void uploadProfileMedia(file,"cover");event.currentTarget.value="";}}/></label></div>
         <div className="profile-photo-wrap"><div className="profile-photo">{profile?.avatar_url?<img src={profile.avatar_url} alt="Profile"/>:<span>{initials}</span>}</div><label className="profile-camera" aria-label="Change profile photo"><Camera size={16}/><input type="file" accept="image/jpeg,image/png,image/webp" hidden disabled={avatarUploading} onChange={(event)=>{const file=event.target.files?.[0];if(file)void uploadProfileMedia(file,"avatar");event.currentTarget.value="";}}/></label></div>
-        <h1>{profile?.display_name || displayName || "Gista User"}{isVerified && <span className="verified-badge" aria-label="Verified public figure">✓</span>}</h1>
+        <h1>{profile?.display_name || displayName || "Gista User"}</h1>
         {profileUsername && <p className="profile-username">@{profileUsername}</p>}
         {profile?.bio && <p className="profile-bio">{profile.bio}</p>}
         <div className="profile-stats"><Link href="#my-posts"><strong>{stats.posts}</strong><span>Posts</span></Link><Link href={profileUsername?`/profile/${profileUsername}/followers`:"#"}><strong>{stats.followers}</strong><span>Followers</span></Link><Link href={profileUsername?`/profile/${profileUsername}/following`:"#"}><strong>{stats.following}</strong><span>Following</span></Link></div>
