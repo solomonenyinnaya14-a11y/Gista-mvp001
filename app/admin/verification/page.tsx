@@ -36,7 +36,7 @@ export default function AdminVerificationPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [kind, setKind] = useState<"personal" | "official">("personal");
+  const [kind, setKind] = useState<"official">("official");
   const [notes, setNotes] = useState("");
   const [checks, setChecks] = useState({ authentic: false, genuine: false, standards: false, reportsReviewed: false });
   const searchRequest = useRef(0);
@@ -114,7 +114,7 @@ export default function AdminVerificationPage() {
   async function openReview(person: Candidate) {
     setSelected(person); setReview(null); setError(""); setMessage(""); setNotes("");
     setChecks({ authentic: false, genuine: false, standards: false, reportsReviewed: false });
-    setKind(person.verification_type ?? "personal");
+    setKind("official");
     setBusy(true);
     const { data, error: reviewError } = await supabase.rpc("admin_get_verification_review", { target_profile_id: person.id });
     if (reviewError) setError("Could not load the user's review history: " + reviewError.message);
@@ -132,17 +132,17 @@ export default function AdminVerificationPage() {
     if (!confirm("Are you sure you want to " + action + " @" + (selected.username ?? selected.display_name ?? "this user") + "?")) return;
     setBusy(true); setError(""); setMessage("");
     const { data, error: actionError } = await supabase.rpc("admin_review_gista_verification", {
-      target_profile_id: selected.id, decision, verification_type: decision === "approved" ? kind : null, review_notes: notes.trim(),
+      target_profile_id: selected.id, decision, verification_type: decision === "approved" ? "official" : null, review_notes: notes.trim(),
     });
     if (actionError) setError("Could not save verification decision: " + actionError.message);
     else {
       const result = data as { is_verified?: boolean; verification_type?: string | null };
-      const updated: Candidate = { ...selected, is_verified: Boolean(result?.is_verified), verification_type: result?.verification_type === "official" ? "official" : result?.is_verified ? "personal" : null };
+      const updated: Candidate = { ...selected, is_verified: Boolean(result?.is_verified), verification_type: result?.is_verified && result?.verification_type === "official" ? "official" : null };
       setSelected(updated);
       setCandidates((prev) => prev.map((p) => p.id === updated.id ? updated : p));
       const { data: fresh, error: freshError } = await supabase.rpc("admin_get_verification_review", { target_profile_id: selected.id });
       if (!freshError) setReview(fresh as ReviewData);
-      setMessage(decision === "approved" ? "User verified. The purple badge is now active across Gista." : decision === "revoked" ? "Verification removed. The badge will no longer appear." : "Review recorded. No verification badge was granted.");
+      setMessage(decision === "approved" ? "Public figure verified. The Gista badge is now active across Gista." : decision === "revoked" ? "Public figure badge removed." : "Review recorded. No public badge was granted.");
     }
     setBusy(false);
   }
@@ -200,8 +200,8 @@ export default function AdminVerificationPage() {
           <div className="verification-content-list"><h3>Reports involving this user ({review.reports.length} recent)</h3>{review.reports.length ? review.reports.map((r) => <article key={r.id}><div><strong>{r.content_type || "Reported item"} · {r.reason || "Report"}</strong><time>{new Date(r.created_at).toLocaleString()}</time></div><p>{r.content_preview || r.details || "No additional details supplied."}</p>{r.details && r.content_preview && <small>{r.details}</small>}<span className={"verification-report-status status-" + (r.status || "pending")}>{(r.status || "pending").replace("_"," ")}</span></article>) : <p className="verification-muted">No reports found for this account or its content.</p>}</div>
         </div>
 
-        <div className="verification-section"><h2>4. Record your decision</h2><p>Choose the badge type only when the user meets the verification criteria. Notes are internal and retained in the review history.</p>
-          <label className="verification-field">Verification type<select value={kind} onChange={(e) => setKind(e.target.value as "personal" | "official")}><option value="personal">Personal verification — authentic individual account</option><option value="official">Official verification — public figure, organisation or official profile</option></select></label>
+        <div className="verification-section"><h2>4. Public figure verification decision</h2><p>This screen is only for public-figure verification. Personal identity checks are handled separately in User Management and never grant a public badge.</p>
+          <div className="verification-field"><strong>Badge eligibility</strong><p>Public figure / official profile only. A visible badge is not granted by personal identity review.</p></div>
           <label className="verification-field">Internal review notes<textarea value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={3000} placeholder="Summarise evidence checked, reports considered, and why the decision meets policy. Avoid unnecessary sensitive information." /></label>
           <p className="verification-check-count">{checkedCount}/4 review checks complete. All four are required to approve.</p>
           <div className="verification-decision-actions">

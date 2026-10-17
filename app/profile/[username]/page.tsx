@@ -60,7 +60,7 @@ export default function PublicProfile() {
       supabase.rpc("get_profile_stats", { target_profile_id: data.id }),
       supabase.from("posts").select("id,body,content_type,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", data.id).order("created_at", { ascending: false }).limit(30),
     ]);
-    const { data: verification } = await supabase.from("verified_profiles").select("profile_id").eq("profile_id", data.id).maybeSingle();
+    const { data: verification } = await supabase.from("verified_profiles").select("profile_id").eq("profile_id", data.id).eq("verification_type", "official").maybeSingle();
     const profileStats = statsResult.data?.[0] as { gists?: number; posts?: number; followers?: number; following?: number } | undefined;
     const isFollowing = !!followState.data;
     setProfile(data as Profile); setIsVerified(!!verification); setFollowing(isFollowing);
@@ -110,6 +110,7 @@ export default function PublicProfile() {
         .from("verified_profiles")
         .select("profile_id")
         .eq("profile_id", profile.id)
+        .eq("verification_type", "official")
         .maybeSingle();
       if (active && !error) setIsVerified(!!data);
     };
