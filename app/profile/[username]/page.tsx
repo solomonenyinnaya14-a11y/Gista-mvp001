@@ -99,6 +99,49 @@ export default function PublicProfile() {
 
   useEffect(() => { void load(); }, [supabase, username]);
 
+  // Keep the public profile badge in sync when an admin verifies or revokes this account.
+  // Realtime updates the open page immediately; focus/visibility checks cover returning to the tab.
+  useEffect(() => {
+    if (!profile?.id) return;
+    let active = true;
+
+    const refreshVerification = async () => {
+      const { data, error } = await supabase
+        .from("verified_profiles")
+        .select("profile_id")
+        .eq("profile_id", profile.id)
+        .maybeSingle();
+      if (active && !error) setIsVerified(!!data);
+    };
+
+    const channel = supabase
+      .channel("profile-verification-" + profile.id)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "verified_profiles",
+          filter: "profile_id=eq." + profile.id,
+        },
+        () => { void refreshVerification(); },
+      )
+      .subscribe();
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") void refreshVerification();
+    };
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      active = false;
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+      void supabase.removeChannel(channel);
+    };
+  }, [supabase, profile?.id]);
+
   async function toggleFollow() {
     if (!me) { router.push("/auth"); return; }
     if (!profile || me.id === profile.id) return;
