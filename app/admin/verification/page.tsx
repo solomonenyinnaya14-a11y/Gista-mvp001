@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -39,6 +39,7 @@ export default function AdminVerificationPage() {
   const [kind, setKind] = useState<"personal" | "official">("personal");
   const [notes, setNotes] = useState("");
   const [checks, setChecks] = useState({ authentic: false, genuine: false, standards: false, reportsReviewed: false });
+  const searchRequest = useRef(0);
 
   useEffect(() => {
     let alive = true;
@@ -57,18 +58,58 @@ export default function AdminVerificationPage() {
   }, [supabase, router]);
 
   const searchUsers = useCallback(async (value: string) => {
-    if (!role) return;
-    if (!value.trim()) { setCandidates([]); setSelected(null); setReview(null); return; }
-    setSearching(true); setError(""); setMessage("");
-    const { data, error: searchError } = await supabase.rpc("admin_search_verification_users", { search_query: value.trim() });
-    if (searchError) setError("Could not search users: " + searchError.message);
-    else {
-      const rows = (data ?? []) as Candidate[];
-      setCandidates(rows);
-      if (selected && !rows.some((p) => p.id === selected.id)) { setSelected(null); setReview(null); }
+    const q = value.trim();
+    const requestId = ++searchRequest.current;
+    if (!q) {
+      setCandidates([]);
+      setSelected(null);
+      setReview(null);
+      setSearching(false);
+      setError("");
+      return;
     }
+    if (!role) return;
+    setSearching(true);
+    setError("");
+    setMessage("");
+    const { data, error: searchError } = await supabase.rpc("admin_search_verification_users", {
+      search_query: q,
+    });
+    // Ignore stale responses when the admin types a newer query.
+    if (requestId !== searchRequest.current) return;
+    if (searchError) {
+      setCandidates([]);
+      setError("Could not search users: " + searchError.message);
+      setSearching(false);
+      return;
+    }
+    const rows = (data ?? []) as Candidate[];
+    setCandidates(rows);
+    setSelected((current) => {
+      if (current && !rows.some((person) => person.id === current.id)) {
+        setReview(null);
+        return null;
+      }
+      return current;
+    });
     setSearching(false);
-  }, [supabase, role, selected]);
+  }, [supabase, role]);
+
+  // Search as the admin types, with a short debounce to avoid unnecessary requests.
+  useEffect(() => {
+    if (role !== "owner" && role !== "admin") return;
+    const value = query.trim();
+    if (!value) {
+      searchRequest.current += 1;
+      setCandidates([]);
+      setSelected(null);
+      setReview(null);
+      setSearching(false);
+      return;
+    }
+    const timer = window.setTimeout(() => { void searchUsers(value); }, 250);
+    return () => window.clearTimeout(timer);
+  }, [query, role, searchUsers]);
 
   async function openReview(person: Candidate) {
     setSelected(person); setReview(null); setError(""); setMessage(""); setNotes("");
