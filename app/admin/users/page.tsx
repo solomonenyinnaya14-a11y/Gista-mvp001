@@ -106,7 +106,7 @@ export default function AdminUsersPage() {
       setError("Enter the evidence-based reason for this account action.");
       return;
     }
-    if (action === "ban" && !confirm("PERMANENT BAN: block " + label(selected) + " from signing in to Gista? Only proceed when the impersonation or serious violation is substantiated.")) return;
+    if (action === "ban" && !confirm("LONG-TERM BAN: block " + label(selected) + " from signing in to Gista? Only proceed when the impersonation or serious violation is substantiated.")) return;
     if (action === "suspend" && !confirm("Suspend " + label(selected) + " from signing in for 30 days?")) return;
     if (action === "restore" && !confirm("Restore sign-in access for " + label(selected) + "?")) return;
     setBusy(true); setError(""); setMessage("");
