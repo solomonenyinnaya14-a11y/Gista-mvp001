@@ -18,7 +18,8 @@ export default function SettingsPage(){
   const[loading,setLoading]=useState(true);
   const[message,setMessage]=useState("");
   const[totalLikes,setTotalLikes]=useState(0);
-  const[totalResponses,setTotalResponses]=useState(0);\n  const[adminRole,setAdminRole]=useState<"owner"|"admin"|null>(null);
+  const[totalResponses,setTotalResponses]=useState(0);
+  const[adminRole,setAdminRole]=useState<"owner"|"admin"|null>(null);
 
   useEffect(()=>{
     let active=true;
@@ -28,7 +29,9 @@ export default function SettingsPage(){
       if(!active)return;
       const user=session?.user;
       if(!user){setLoading(false);return;}
-      setEmail(user.email??"");\n      const {data: adminAccess}=await supabase.from("gista_admins").select("role").eq("user_id",user.id).maybeSingle();\n      if(active&&(adminAccess?.role==="owner"||adminAccess?.role==="admin"))setAdminRole(adminAccess.role);
+      setEmail(user.email??"");
+      const {data: adminAccess}=await supabase.from("gista_admins").select("role").eq("user_id",user.id).maybeSingle();
+      if(active&&(adminAccess?.role==="owner"||adminAccess?.role==="admin"))setAdminRole(adminAccess.role);
 
       // Account/profile data can load together.
       const[{data:p},{data:posts}]=await Promise.all([
