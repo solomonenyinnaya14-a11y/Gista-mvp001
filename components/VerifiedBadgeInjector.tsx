@@ -11,7 +11,7 @@ function loadVerifiedAccounts(supabase: ReturnType<typeof createClient>) {
     verifiedPromise = (async () => {
       const { data, error } = await supabase
         .from("verified_profiles")
-        .select("profile_id,badge_color,profiles!verified_profiles_profile_id_fkey(username)");
+        .select("profile_id,badge_color,profiles!verified_profiles_profile_id_fkey(username)")\n        .eq("verification_type", "official");
       if (error || !data) return [];
       return (data as any[])
         .map((row) => ({
