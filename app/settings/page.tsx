@@ -18,7 +18,7 @@ export default function SettingsPage(){
   const[loading,setLoading]=useState(true);
   const[message,setMessage]=useState("");
   const[totalLikes,setTotalLikes]=useState(0);
-  const[totalResponses,setTotalResponses]=useState(0);
+  const[totalResponses,setTotalResponses]=useState(0);\n  const[adminRole,setAdminRole]=useState<"owner"|"admin"|null>(null);
 
   useEffect(()=>{
     let active=true;
@@ -28,7 +28,7 @@ export default function SettingsPage(){
       if(!active)return;
       const user=session?.user;
       if(!user){setLoading(false);return;}
-      setEmail(user.email??"");
+      setEmail(user.email??"");\n      const {data: adminAccess}=await supabase.from("gista_admins").select("role").eq("user_id",user.id).maybeSingle();\n      if(active&&(adminAccess?.role==="owner"||adminAccess?.role==="admin"))setAdminRole(adminAccess.role);
 
       // Account/profile data can load together.
       const[{data:p},{data:posts}]=await Promise.all([
@@ -67,6 +67,6 @@ export default function SettingsPage(){
     <section className="create-card"><h2>Your Gista activity</h2><div className="profile-metrics"><div className="profile-metric"><strong>{totalLikes}</strong><span>Total likes received</span></div><div className="profile-metric"><strong>{totalResponses}</strong><span>Total responses received</span></div></div></section>
     <section className="create-card"><h2>Notifications</h2><Link href="/notifications">Open notifications</Link></section>
     <section className="create-card privacy-card"><h2>Privacy</h2><label className="privacy-toggle"><input className="privacy-checkbox" type="checkbox" checked={privateAccount} onChange={e=>privacy(e.target.checked)}/><span>Private account</span></label><p>When enabled, your profile and Gists are visible only to you and people who follow you.</p><label className="privacy-toggle"><input className="privacy-checkbox" type="checkbox" checked={followingPrivate} onChange={e=>followingPrivacy(e.target.checked)}/><span>Private following</span></label><p>When enabled, only you can see the people you follow. Your following count remains visible.</p></section>
-    <section className="create-card"><h2>Safety</h2><Link href="/settings/blocked">Blocked users</Link></section><section className="create-card"><h2>Security</h2><Link href="/auth/forgot-password">Change/reset password</Link></section><section className="create-card"><h2>Help & Support</h2><div style={{display:"grid",gap:10}}><Link href="/help">Help Center</Link><Link href="/how-to-use">How to use Gista</Link></div></section><section className="create-card"><h2>About & Privacy</h2><div style={{display:"grid",gap:10}}><Link href="/about">About Gista</Link><Link href="/privacy">Privacy information</Link></div></section><section className="create-card"><button className="primary small" onClick={signOut}>Log out</button><button className="danger small" onClick={deleteAccount}>Delete account</button></section>{message&&<div className="auth-message">{message}</div>}
+    <section className="create-card"><h2>Safety</h2><Link href="/settings/blocked">Blocked users</Link></section><section className="create-card"><h2>Security</h2><Link href="/auth/forgot-password">Change/reset password</Link></section><section className="create-card"><h2>Help & Support</h2><div style={{display:"grid",gap:10}}><Link href="/help">Help Center & Contact Support</Link><Link href="/how-to-use">How to use Gista</Link></div></section>{adminRole&&<section className="create-card"><h2>Founder & Administration</h2><p style={{color:"#77727f",fontSize:13}}>Review reports, handle complaints, and manage authorised administrators.</p><Link className="primary small" href="/admin">Open Admin Dashboard →</Link><p style={{color:"#8b8792",fontSize:11,marginBottom:0}}>{adminRole==="owner"?"Founder / Owner access":"Administrator access"}</p></section>}<section className="create-card"><h2>About & Privacy</h2><div style={{display:"grid",gap:10}}><Link href="/about">About Gista</Link><Link href="/privacy">Privacy information</Link></div></section><section className="create-card"><button className="primary small" onClick={signOut}>Log out</button><button className="danger small" onClick={deleteAccount}>Delete account</button></section>{message&&<div className="auth-message">{message}</div>}
   </div>}</main>
 }
