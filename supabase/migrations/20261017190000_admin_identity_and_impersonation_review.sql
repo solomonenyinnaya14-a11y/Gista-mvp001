@@ -71,7 +71,7 @@ begin
     select p.id, p.username, p.display_name, p.avatar_url, p.bio, p.created_at
     from public.profiles p
     where q = ''
-       or coalesce(p.username, '') ilike '%' || replace(replace(q, '%', '\\%'), '_', '\\_') || '%'
+       or coalesce(p.username, '') ilike '%' || q || '%'
        or coalesce(p.display_name, '') ilike '%' || replace(replace(q, '%', '\\%'), '_', '\\_') || '%'
   )
   select f.id, f.username, f.display_name, f.avatar_url, f.bio, f.created_at,
@@ -139,3 +139,61 @@ revoke all on function public.admin_list_user_management(text,integer,integer) f
 revoke all on function public.admin_record_personal_identity_review(uuid,text,text) from public, anon;
 grant execute on function public.admin_list_user_management(text,integer,integer) to authenticated;
 grant execute on function public.admin_record_personal_identity_review(uuid,text,text) to authenticated;
+
+-- Existing personal verification was previously stored in the public badge table.
+-- Preserve the internal review result, then remove the public badge for those accounts.
+insert into public.user_identity_reviews(profile_id, status, reviewed_at, notes, updated_at)
+select vp.profile_id, 'confirmed', vp.verified_at,
+       'Migrated from the previous personal-verification flow. Internal-only; no public badge.',
+       now()
+from public.verified_profiles vp
+where vp.verification_type = 'personal'
+on conflict (profile_id) do update
+set status = 'confirmed',
+    reviewed_at = coalesce(public.user_identity_reviews.reviewed_at, excluded.reviewed_at),
+    notes = case when public.user_identity_reviews.notes = '' then excluded.notes else public.user_identity_reviews.notes end,
+    updated_at = now();
+
+delete from public.verified_profiles where verification_type = 'personal';
+
+-- Public badges are reserved for approved public-figure/official accounts.
+create or replace function public.admin_review_gista_verification(
+  target_profile_id uuid, decision text, verification_type text default null, review_notes text default ''
+)
+returns jsonb language plpgsql security definer set search_path = ''
+as $function$
+declare clean_notes text := left(coalesce(review_notes, ''), 3000); result jsonb;
+begin
+  if not private.is_gista_admin() then
+    raise insufficient_privilege using message = 'Only authorised Gista administrators can change verification status.';
+  end if;
+  if not exists (select 1 from public.profiles p where p.id = target_profile_id) then
+    raise no_data_found using message = 'Gista user not found.';
+  end if;
+  if decision is null or decision not in ('approved','not_approved','revoked') then
+    raise check_violation using message = 'Invalid verification decision.';
+  end if;
+  if decision = 'approved' and verification_type is distinct from 'official' then
+    raise check_violation using message = 'Only public-figure verification can grant a visible badge. Use internal identity review for personal verification.';
+  end if;
+
+  if decision = 'approved' then
+    insert into public.verified_profiles(profile_id,verification_type,badge_color,verified_at)
+    values (target_profile_id,'official','#6D28D9',now())
+    on conflict (profile_id) do update set verification_type='official',badge_color='#6D28D9',verified_at=now();
+  elsif decision in ('revoked','not_approved') then
+    delete from public.verified_profiles where profile_id=target_profile_id;
+  end if;
+
+  insert into public.verification_reviews(profile_id,reviewed_by,decision,verification_type,notes)
+  values (target_profile_id,auth.uid(),decision,case when decision='approved' then 'official' else null end,clean_notes);
+  select jsonb_build_object('decision',decision,
+    'is_verified',exists(select 1 from public.verified_profiles where profile_id=target_profile_id and verification_type='official'),
+    'verification_type',(select vp.verification_type from public.verified_profiles vp where vp.profile_id=target_profile_id and vp.verification_type='official'))
+  into result;
+  return result;
+end;
+$function$;
+
+revoke all on function public.admin_review_gista_verification(uuid,text,text,text) from public, anon;
+grant execute on function public.admin_review_gista_verification(uuid,text,text,text) to authenticated;
