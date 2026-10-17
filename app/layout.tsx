@@ -11,6 +11,7 @@ import "./performance-fixes.css";
 import "./formal-architecture.css";
 import VerifiedBadgeInjector from "@/components/VerifiedBadgeInjector";
 import ThemeProvider from "@/components/ThemeProvider";
+import AnalyticsTracker from "@/components/AnalyticsTracker";
 
 export const metadata: Metadata = {
   title: "Gista",
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider>
           <VerifiedBadgeInjector />
+          <AnalyticsTracker />
           {children}
         </ThemeProvider>
       </body>
