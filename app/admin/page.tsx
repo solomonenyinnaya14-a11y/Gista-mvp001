@@ -224,7 +224,7 @@ export default function AdminPage() {
   const contentText = (r: Report) => content[contentId(r)]?.body ?? (r.target_user_id ? "Profile report" : "Content unavailable or no text attached.");
 
   return <main className="admin-page">
-    <header className="admin-header"><Link className="admin-brand" href="/"><span className="admin-mark">G</span><span>Gista <small>ADMIN</small></span></Link><div className="admin-header-right"><span className={"admin-role "+(role==="owner"?"owner":"")}>{role==="owner"?"Founder / Owner":"Administrator"}</span><Link href="/admin/analytics">Analytics</Link><Link href="/settings">Exit admin</Link></div></header>
+    <header className="admin-header"><Link className="admin-brand" href="/"><span className="admin-mark">G</span><span>Gista <small>ADMIN</small></span></Link><div className="admin-header-right"><span className={"admin-role "+(role==="owner"?"owner":"")}>{role==="owner"?"Founder / Owner":"Administrator"}</span><Link href="/admin/verification">Verification</Link><Link href="/admin/analytics">Analytics</Link><Link href="/settings">Exit admin</Link></div></header>
     <div className="admin-container">
       <div className="admin-title-row"><div><p className="admin-eyebrow">PRIVATE CONTROL CENTRE</p><h1>Admin dashboard</h1><p className="admin-subtitle">Review reports, respond to complaints, and keep Gista safe.</p></div><button style={button} onClick={() => role && void loadDashboard(userId, role)}>Refresh</button></div>
       <section className="admin-stats">
