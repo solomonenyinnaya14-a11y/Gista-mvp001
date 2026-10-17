@@ -157,27 +157,29 @@ export default function AdminPage() {
       setError("");
       return;
     }
-    setSearching(true); setMessage(""); setError("");
-    // Escape characters that have special meaning in PostgREST filter syntax.
-    const safe = q.replace(/[,%()]/g, " ").trim();
-    if (!safe) {
+    setSearching(true);
+    setMessage("");
+    setError("");
+
+    // Search through a narrowly scoped owner-only database function. This avoids
+    // profile-visibility/RLS filtering from hiding users from the owner search.
+    const { data, error: searchError } = await supabase.rpc("search_gista_admin_users", {
+      search_query: q,
+    });
+    if (requestId !== searchRequest.current) return;
+
+    if (searchError) {
       setSearchResults([]);
+      setError("Could not search Gista users: " + searchError.message);
       setSearching(false);
       return;
     }
-    const [byUsername, byName] = await Promise.all([
-      supabase.from("profiles").select("id,username,display_name").ilike("username", "%" + safe + "%").limit(8),
-      supabase.from("profiles").select("id,username,display_name").ilike("display_name", "%" + safe + "%").limit(8),
-    ]);
-    // Ignore responses from older searches if the user has typed more.
-    if (requestId !== searchRequest.current) return;
-    if (byUsername.error || byName.error) setError(byUsername.error?.message ?? byName.error?.message ?? "Search failed.");
+
     const merged = new Map<string, Profile>();
-    [...(byUsername.data ?? []), ...(byName.data ?? [])].forEach((p: Profile) => merged.set(p.id, p));
-    setSearchResults([...merged.values()].filter((p) => !admins.some((a) => a.user_id === p.id)).slice(0, 10));
+    ((data ?? []) as Profile[]).forEach((p) => merged.set(p.id, p));
+    setSearchResults([...merged.values()].filter((p) => !admins.some((a) => a.user_id === p.id)));
     setSearching(false);
   }, [supabase, admins]);
-
   // Search as the owner types, including after the very first character.
   useEffect(() => {
     if (role !== "owner") return;
