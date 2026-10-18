@@ -7,7 +7,6 @@ import {useTheme} from "@/components/ThemeProvider";
 
 type ThemeOption="light"|"dark"|"system";
 type ProfileSettings={is_private?:boolean|null;following_private?:boolean|null};
-type ActivityCount={post_id?:string;id?:string};
 
 export default function SettingsPage(){
   const supabase=useMemo(()=>createClient(),[]);
@@ -34,9 +33,9 @@ export default function SettingsPage(){
       if(active&&(adminAccess?.role==="owner"||adminAccess?.role==="admin"))setAdminRole(adminAccess.role);
 
       // Account/profile data can load together.
-      const[{data:p},{data:posts}]=await Promise.all([
+      const[{data:p},{count:postsCount,error:postsError}]=await Promise.all([
         supabase.from("profiles").select("is_private,following_private").eq("id",user.id).maybeSingle(),
-        supabase.from("posts").select("id").eq("author_id",user.id)
+        supabase.from("posts").select("id",{count:"exact",head:true}).eq("author_id",user.id)
       ]);
       if(!active)return;
       const settings=p as ProfileSettings|null;
@@ -44,16 +43,13 @@ export default function SettingsPage(){
       setFollowingPrivate(Boolean(settings?.following_private));
       setLoading(false);
 
-      // Activity totals are secondary; they must never block the settings screen.
-      const postIds=(posts??[]).map((post:ActivityCount)=>post.id).filter((id):id is string=>Boolean(id));
-      if(!postIds.length)return;
-      const[{count:likes,error:likesError},{count:responses,error:responsesError}]=await Promise.all([
-        supabase.from("likes").select("post_id",{count:"exact",head:true}).in("post_id",postIds),
-        supabase.from("responses").select("id",{count:"exact",head:true}).in("post_id",postIds)
+      // Activity totals use exact database counts, avoiding Supabase's default row limit and oversized IN queries.
+      const[{count:responses,error:responsesError}]=await Promise.all([
+        supabase.from("responses").select("id, posts!inner(author_id)",{count:"exact",head:true}).eq("posts.author_id",user.id)
       ]);
       if(!active)return;
-      if(likesError||responsesError)setMessage(likesError?.message??responsesError?.message??"Could not load activity.");
-      setTotalPosts(postIds.length);
+      if(postsError||responsesError)setMessage(postsError?.message??responsesError?.message??"Could not load activity.");
+      setTotalPosts(postsCount??0);
       setTotalResponses(responses??0);
     };
     void load();
