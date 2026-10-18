@@ -42,7 +42,7 @@ export default function PublicProfile() {
   const [me, setMe] = useState<{ id: string } | null>(null);
   const [following, setFollowing] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
-  const [counts, setCounts] = useState({ likes: 0, followers: 0, following: 0 });
+  const [counts, setCounts] = useState({ posts: 0, likes: 0, followers: 0, following: 0 });
   const [posts, setPosts] = useState<PublicPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [privateMessage, setPrivateMessage] = useState("");
@@ -67,7 +67,7 @@ export default function PublicProfile() {
     const likesResultForStats = allPostIds.length ? await supabase.from("likes").select("post_id", { count: "exact", head: true }).in("post_id", allPostIds) : { count: 0, error: null };
     const isFollowing = !!followState.data;
     setProfile(data as Profile); setIsVerified(!!verification); setFollowing(isFollowing);
-    setCounts({ likes: likesResultForStats.count ?? 0, followers: Number(profileStats?.followers ?? 0), following: Number(profileStats?.following ?? 0) });
+    setCounts({ posts: Number(profileStats?.posts ?? profileStats?.gists ?? 0), likes: likesResultForStats.count ?? 0, followers: Number(profileStats?.followers ?? 0), following: Number(profileStats?.following ?? 0) });
     if (data.is_private && user?.id !== data.id && !isFollowing) { setPosts([]); setPrivateMessage("This account is private. Follow this account to see its Posts."); setLoading(false); return; }
     const ownPosts = (postsResult.data ?? []) as Array<Omit<PublicPost, "likes" | "responses" | "saves" | "shares" | "liked" | "saved">>;
     const postIds = ownPosts.map((post) => post.id);
