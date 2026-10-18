@@ -21,7 +21,7 @@ export default function ProfilePage() {
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
-  const [stats, setStats] = useState({ likes: 0, followers: 0, following: 0 });
+  const [stats, setStats] = useState({ posts: 0, likes: 0, followers: 0, following: 0 });
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -53,7 +53,7 @@ export default function ProfilePage() {
     const rawStats = statsResult.data?.[0] as { gists?: number; followers?: number; following?: number } | undefined;
     const allPostIds = (allPostsResult.data ?? []).map((post: { id: string }) => post.id);
     const likesResultForStats = allPostIds.length ? await supabase.from("likes").select("post_id", { count: "exact", head: true }).in("post_id", allPostIds) : { count: 0, error: null };
-    setStats({ likes: likesResultForStats.count ?? 0, followers: Number(rawStats?.followers ?? 0), following: Number(rawStats?.following ?? 0) });
+    setStats({ posts: Number(rawStats?.gists ?? 0), likes: likesResultForStats.count ?? 0, followers: Number(rawStats?.followers ?? 0), following: Number(rawStats?.following ?? 0) });
     const rawPosts = (postsResult.data ?? []) as Array<Omit<Post, "likes" | "comments" | "saves" | "shares" | "liked" | "saved">>;
     const ids = rawPosts.map((post) => post.id);
     if (!ids.length) { setPosts([]); setLoading(false); return; }
