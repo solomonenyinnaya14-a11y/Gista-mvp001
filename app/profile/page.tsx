@@ -37,11 +37,11 @@ export default function ProfilePage() {
     const user = session?.user ?? null;
     if (!user) { router.replace("/auth"); return; }
     const fallbackName = user.email?.split("@")[0] ?? "Gista User";
-    const [profileResult, statsResult, postsResult, allPostsResult] = await Promise.all([
+    const [profileResult, statsResult, postsResult, totalLikesResult] = await Promise.all([
       supabase.from("profiles").select(PROFILE_SELECT).eq("id", user.id).maybeSingle(),
       supabase.rpc("get_profile_stats", { target_profile_id: user.id }),
       supabase.from("posts").select("id,content_type,body,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", user.id).order("created_at", { ascending: false }).limit(30),
-      supabase.from("posts").select("id").eq("author_id", user.id),
+      supabase.from("likes").select("post_id, posts!inner(author_id)", { count: "exact", head: true }).eq("posts.author_id", user.id),
     ]);
     let data = profileResult.data as Profile | null;
     if (!data && !profileResult.error) {
@@ -51,9 +51,7 @@ export default function ProfilePage() {
     if (profileResult.error && !data) setError(profileResult.error.message);
     if (data) { setProfile(data); setDisplayName(data.display_name ?? fallbackName); setUsername(data.username ?? ""); setBio(data.bio ?? ""); }
     const rawStats = statsResult.data?.[0] as { gists?: number; followers?: number; following?: number } | undefined;
-    const allPostIds = (allPostsResult.data ?? []).map((post: { id: string }) => post.id);
-    const likesResultForStats = allPostIds.length ? await supabase.from("likes").select("post_id", { count: "exact", head: true }).in("post_id", allPostIds) : { count: 0, error: null };
-    setStats({ posts: Number(rawStats?.gists ?? 0), likes: likesResultForStats.count ?? 0, followers: Number(rawStats?.followers ?? 0), following: Number(rawStats?.following ?? 0) });
+    setStats({ posts: Number(rawStats?.gists ?? 0), likes: totalLikesResult.count ?? 0, followers: Number(rawStats?.followers ?? 0), following: Number(rawStats?.following ?? 0) });
     const rawPosts = (postsResult.data ?? []) as Array<Omit<Post, "likes" | "comments" | "saves" | "shares" | "liked" | "saved">>;
     const ids = rawPosts.map((post) => post.id);
     if (!ids.length) { setPosts([]); setLoading(false); return; }
