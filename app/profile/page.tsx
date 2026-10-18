@@ -95,7 +95,7 @@ export default function ProfilePage() {
     const column = kind === "avatar" ? "avatar_url" : "cover_url";
     const { data: updated, error: updateError } = await supabase.from("profiles").update({ [column]: publicUrl }).eq("id", user.id).select(PROFILE_SELECT).single();
     if (updateError || !updated) { await supabase.storage.from("profile-media").remove([path]); setError(updateError?.message ?? "Profile could not be updated."); }
-    else { setProfile(updated as Profile); setMessage(kind === "avatar" ? "Profile photo updated." : "Cover photo updated."); }
+    else { const nextProfile = updated as Profile; setProfile(nextProfile); window.dispatchEvent(new CustomEvent("gista:profile-media-updated", { detail: { profile: nextProfile } })); setMessage(kind === "avatar" ? "Profile photo updated." : "Cover photo updated."); }
     if (kind === "avatar") setAvatarUploading(false); else setCoverUploading(false);
   }
 
