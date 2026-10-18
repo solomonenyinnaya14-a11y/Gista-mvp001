@@ -21,7 +21,7 @@ export default function ProfilePage() {
   const [displayName, setDisplayName] = useState("");
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
-  const [stats, setStats] = useState({ posts: 0, followers: 0, following: 0 });
+  const [stats, setStats] = useState({ posts: 0, likes: 0, followers: 0, following: 0 });
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -37,10 +37,11 @@ export default function ProfilePage() {
     const user = session?.user ?? null;
     if (!user) { router.replace("/auth"); return; }
     const fallbackName = user.email?.split("@")[0] ?? "Gista User";
-    const [profileResult, statsResult, postsResult] = await Promise.all([
+    const [profileResult, statsResult, postsResult, totalLikesResult] = await Promise.all([
       supabase.from("profiles").select(PROFILE_SELECT).eq("id", user.id).maybeSingle(),
       supabase.rpc("get_profile_stats", { target_profile_id: user.id }),
       supabase.from("posts").select("id,content_type,body,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", user.id).order("created_at", { ascending: false }).limit(30),
+      supabase.from("likes").select("post_id, posts!inner(author_id)", { count: "exact", head: true }).eq("posts.author_id", user.id),
     ]);
     let data = profileResult.data as Profile | null;
     if (!data && !profileResult.error) {
@@ -50,7 +51,7 @@ export default function ProfilePage() {
     if (profileResult.error && !data) setError(profileResult.error.message);
     if (data) { setProfile(data); setDisplayName(data.display_name ?? fallbackName); setUsername(data.username ?? ""); setBio(data.bio ?? ""); }
     const rawStats = statsResult.data?.[0] as { gists?: number; followers?: number; following?: number } | undefined;
-    setStats({ posts: Number(rawStats?.gists ?? 0), followers: Number(rawStats?.followers ?? 0), following: Number(rawStats?.following ?? 0) });
+    setStats({ posts: Number(rawStats?.gists ?? 0), likes: totalLikesResult.count ?? 0, followers: Number(rawStats?.followers ?? 0), following: Number(rawStats?.following ?? 0) });
     const rawPosts = (postsResult.data ?? []) as Array<Omit<Post, "likes" | "comments" | "saves" | "shares" | "liked" | "saved">>;
     const ids = rawPosts.map((post) => post.id);
     if (!ids.length) { setPosts([]); setLoading(false); return; }
@@ -151,7 +152,7 @@ export default function ProfilePage() {
         <h1>{profile?.display_name || displayName || "Gista User"}</h1>
         {profileUsername && <p className="profile-username">@{profileUsername}</p>}
         {profile?.bio && <p className="profile-bio">{profile.bio}</p>}
-        <div className="profile-stats"><Link href="#my-posts"><strong>{stats.posts}</strong><span>Posts</span></Link><Link href={profileUsername?`/profile/${profileUsername}/followers`:"#"}><strong>{stats.followers}</strong><span>Followers</span></Link><Link href={profileUsername?`/profile/${profileUsername}/following`:"#"}><strong>{stats.following}</strong><span>Following</span></Link></div>
+        <div className="profile-stats"><div><strong>{stats.likes}</strong><span>Total Likes</span></div><Link href={profileUsername?`/profile/${profileUsername}/followers`:"#"}><strong>{stats.followers}</strong><span>Followers</span></Link><Link href={profileUsername?`/profile/${profileUsername}/following`:"#"}><strong>{stats.following}</strong><span>Following</span></Link></div>
         <div className="profile-actions"><button className="profile-primary" type="button" onClick={()=>{setEdit((value)=>!value);setError("");setMessage("");}}>{edit?"Close editor":"Edit profile"}</button><Link className="profile-secondary" href="/saved">Saved Posts</Link></div>
         {(loading||avatarUploading||coverUploading||message||error)&&<div className={error?"profile-feedback error":"profile-feedback"}>{loading?"Loading profile details…":avatarUploading?"Uploading profile photo…":coverUploading?"Uploading cover photo…":message||error}</div>}
       </section>
