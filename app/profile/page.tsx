@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { signOut } from "@/lib/auth";
 import VoiceNote from "@/components/VoiceNote";
 import BottomNav from "@/components/BottomNav";
+import { browserStorage, invalidateUserFeedCache } from "@/lib/feed-cache";
 
 type Profile = { id: string; username: string | null; display_name: string | null; bio: string | null; avatar_url: string | null; cover_url: string | null };
 type Post = { id: string; content_type: string; body: string | null; media_url: string | null; category: string; status: string | null; created_at: string; voice_duration_seconds: number | null; likes: number; comments: number; saves: number; shares: number; liked: boolean; saved: boolean };
@@ -95,7 +96,7 @@ export default function ProfilePage() {
     const column = kind === "avatar" ? "avatar_url" : "cover_url";
     const { data: updated, error: updateError } = await supabase.from("profiles").update({ [column]: publicUrl }).eq("id", user.id).select(PROFILE_SELECT).single();
     if (updateError || !updated) { await supabase.storage.from("profile-media").remove([path]); setError(updateError?.message ?? "Profile could not be updated."); }
-    else { const nextProfile = updated as Profile; setProfile(nextProfile); window.dispatchEvent(new CustomEvent("gista:profile-media-updated", { detail: { profile: nextProfile } })); setMessage(kind === "avatar" ? "Profile photo updated." : "Cover photo updated."); }
+    else { const nextProfile = updated as Profile; setProfile(nextProfile); invalidateUserFeedCache(browserStorage(), user.id); window.dispatchEvent(new CustomEvent("gista:profile-media-updated", { detail: { profile: nextProfile } })); setMessage(kind === "avatar" ? "Profile photo updated." : "Cover photo updated."); }
     if (kind === "avatar") setAvatarUploading(false); else setCoverUploading(false);
   }
 
