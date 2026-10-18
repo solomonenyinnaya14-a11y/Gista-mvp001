@@ -71,3 +71,19 @@ export function clearFeedCache(storage: FeedCacheStorage | null, keepUserId?: st
     // Nothing else to do if storage is unavailable.
   }
 }
+
+// Invalidates every cached feed tab for one user after profile media changes.
+export function invalidateUserFeedCache(storage: FeedCacheStorage | null, userId: string) {
+  if (!storage) return;
+  try {
+    const prefix = `${FEED_CACHE_PREFIX}${userId}:`;
+    const doomed: string[] = [];
+    for (let i = 0; i < storage.length; i += 1) {
+      const key = storage.key(i);
+      if (key && key.startsWith(prefix)) doomed.push(key);
+    }
+    doomed.forEach((key) => storage.removeItem(key));
+  } catch {
+    // The next normal feed refresh can still reconcile the UI if storage is unavailable.
+  }
+}
