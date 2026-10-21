@@ -38,12 +38,20 @@ export default function ProfilePage() {
     const user = session?.user ?? null;
     if (!user) { router.replace("/auth"); return; }
     const fallbackName = user.email?.split("@")[0] ?? "Gista User";
-    const [profileResult, statsResult, postsResult, totalLikesResult] = await Promise.all([
+    const [profileResult, statsResult, initialPostsResult, totalLikesResult] = await Promise.all([
       supabase.from("profiles").select(PROFILE_SELECT).eq("id", user.id).maybeSingle(),
       supabase.rpc("get_profile_stats", { target_profile_id: user.id }),
       supabase.from("posts").select("id,content_type,body,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", user.id).order("created_at", { ascending: false }).limit(30),
       supabase.from("likes").select("post_id, posts!inner(author_id)", { count: "exact", head: true }).eq("posts.author_id", user.id),
     ]);
+    let postsResult = initialPostsResult;
+    // Profile queries can race the first authenticated request after navigation.
+    // Retry a transient empty result before treating it as a genuinely empty profile.
+    if ((postsResult.data ?? []).length === 0 && !postsResult.error) {
+      await new Promise((resolve) => window.setTimeout(resolve, 300));
+      const retry = await supabase.from("posts").select("id,content_type,body,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", user.id).order("created_at", { ascending: false }).limit(30);
+      if (!retry.error && (retry.data ?? []).length > 0) postsResult = retry;
+    }
     let data = profileResult.data as Profile | null;
     if (!data && !profileResult.error) {
       const created = await supabase.from("profiles").insert({ id: user.id, display_name: fallbackName, username: null, bio: "" }).select(PROFILE_SELECT).single();
