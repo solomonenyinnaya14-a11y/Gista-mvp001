@@ -30,13 +30,18 @@ export default function HomePage(){
     .on("postgres_changes",{event:"DELETE",schema:"public",table:"responses"},payload=>{const postId=String((payload.old as {post_id?:string}).post_id??"");if(!postId)return;setPosts(current=>{if(!current.some(post=>post.id===postId))return current;const next=current.map(post=>post.id===postId?{...post,responses:Math.max(0,post.responses-1)}:post);writeFeedCache(browserStorage(),user.id,tab,next);return next})})
     .subscribe();
     let wasHidden=document.visibilityState==="hidden";
-    const refresh=()=>{void loadPosts(user,true)};
+    let wasFocused=document.hasFocus();
+    let lastRefreshAt=0;
+    const refresh=()=>{const now=Date.now();if(now-lastRefreshAt<1500)return;lastRefreshAt=now;void loadPosts(user,true)};
+    const onBlur=()=>{wasFocused=false};
+    const onFocus=()=>{if(!wasFocused){wasFocused=true;refresh()}};
     const onVisibility=()=>{if(document.visibilityState==="visible"&&wasHidden)refresh();wasHidden=document.visibilityState==="hidden"};
-    const onPageShow=()=>refresh();
-    window.addEventListener("focus",refresh);
+    const onPageShow=(event:PageTransitionEvent)=>{if(event.persisted)refresh()};
+    window.addEventListener("blur",onBlur);
+    window.addEventListener("focus",onFocus);
     window.addEventListener("pageshow",onPageShow);
     document.addEventListener("visibilitychange",onVisibility);
-    return()=>{window.removeEventListener("focus",refresh);window.removeEventListener("pageshow",onPageShow);document.removeEventListener("visibilitychange",onVisibility);void supabase.removeChannel(channel)};
+    return()=>{window.removeEventListener("blur",onBlur);window.removeEventListener("focus",onFocus);window.removeEventListener("pageshow",onPageShow);document.removeEventListener("visibilitychange",onVisibility);void supabase.removeChannel(channel)};
   },[user,supabase,tab,loadPosts]);
   useEffect(()=>{if(!user)return;const onProfileMediaUpdated=(event:Event)=>{const detail=(event as CustomEvent<{profile?:{id:string;display_name:string|null;username:string|null;avatar_url:string|null}}>).detail;const next=detail?.profile;if(!next||next.id!==user.id)return;setProfile(next);setPosts(current=>current.map(post=>post.author_id===user.id?{...post,profiles:{id:user.id,avatar_url:next.avatar_url,display_name:next.display_name,username:next.username}}:post));void loadPosts(user,true)};window.addEventListener("gista:profile-media-updated",onProfileMediaUpdated);return()=>window.removeEventListener("gista:profile-media-updated",onProfileMediaUpdated)},[user,loadPosts]);
   useEffect(()=>{if(!user)return;let hiddenAt=0;const onVisibility=()=>{if(document.visibilityState==="hidden"){hiddenAt=Date.now();return}if(hiddenAt&&Date.now()-hiddenAt>=feedCacheMaxAge){void loadPosts(user,true)}hiddenAt=0};const onPageShow=(event:PageTransitionEvent)=>{if(event.persisted)void loadPosts(user,true)};document.addEventListener("visibilitychange",onVisibility);window.addEventListener("pageshow",onPageShow);return()=>{document.removeEventListener("visibilitychange",onVisibility);window.removeEventListener("pageshow",onPageShow)}},[user,loadPosts]);
