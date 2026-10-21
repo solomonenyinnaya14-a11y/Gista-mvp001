@@ -25,7 +25,7 @@ export default function HomePage(){
   useEffect(()=>{if(!user)return;const key=`${user.id}:${tab}`;if(loadedFeedKey.current===key)return;loadedFeedKey.current=key;void loadPosts(user)},[tab,user,loadPosts]);
   // Keep response counts live while the feed is mounted. The cached feed is only a fast
   // first paint; Postgres changes reconcile new/deleted responses without a manual refresh.
-  useEffect(()=>{if(!user)return;const channel=supabase.channel("gista-feed-response-counts")
+  useEffect(()=>{if(!user)return;let refreshTimer:number|undefined;const scheduleRefresh=()=>{if(refreshTimer!==undefined)window.clearTimeout(refreshTimer);refreshTimer=scheduleRefresh()};const channel=supabase.channel("gista-feed-response-counts")
     .on("postgres_changes",{event:"INSERT",schema:"public",table:"responses"},payload=>{const postId=String((payload.new as {post_id?:string}).post_id??"");if(!postId)return;feedRequestId.current+=1;setPosts(current=>{if(!current.some(post=>post.id===postId))return current;const next=current.map(post=>post.id===postId?{...post,responses:post.responses+1}:post);writeFeedCache(browserStorage(),user.id,tab,next);return next})});window.setTimeout(()=>void loadPosts(user,true),250)
     .on("postgres_changes",{event:"DELETE",schema:"public",table:"responses"},payload=>{const postId=String((payload.old as {post_id?:string}).post_id??"");if(!postId)return;feedRequestId.current+=1;setPosts(current=>{if(!current.some(post=>post.id===postId))return current;const next=current.map(post=>post.id===postId?{...post,responses:Math.max(0,post.responses-1)}:post);writeFeedCache(browserStorage(),user.id,tab,next);return next})});window.setTimeout(()=>void loadPosts(user,true),250)
     .subscribe();
@@ -41,7 +41,7 @@ export default function HomePage(){
     window.addEventListener("focus",onFocus);
     window.addEventListener("pageshow",onPageShow);
     document.addEventListener("visibilitychange",onVisibility);
-    return()=>{window.removeEventListener("blur",onBlur);window.removeEventListener("focus",onFocus);window.removeEventListener("pageshow",onPageShow);document.removeEventListener("visibilitychange",onVisibility);void supabase.removeChannel(channel)};
+    return()=>{if(refreshTimer!==undefined)window.clearTimeout(refreshTimer);window.removeEventListener("blur",onBlur);window.removeEventListener("focus",onFocus);window.removeEventListener("pageshow",onPageShow);document.removeEventListener("visibilitychange",onVisibility);void supabase.removeChannel(channel)};
   },[user,supabase,tab,loadPosts]);
   useEffect(()=>{if(!user)return;const onProfileMediaUpdated=(event:Event)=>{const detail=(event as CustomEvent<{profile?:{id:string;display_name:string|null;username:string|null;avatar_url:string|null}}>).detail;const next=detail?.profile;if(!next||next.id!==user.id)return;setProfile(next);setPosts(current=>current.map(post=>post.author_id===user.id?{...post,profiles:{id:user.id,avatar_url:next.avatar_url,display_name:next.display_name,username:next.username}}:post));void loadPosts(user,true)};window.addEventListener("gista:profile-media-updated",onProfileMediaUpdated);return()=>window.removeEventListener("gista:profile-media-updated",onProfileMediaUpdated)},[user,loadPosts]);
   function cacheCurrentPosts(next:Post[],userId:string){writeFeedCache(browserStorage(),userId,tab,next)}
