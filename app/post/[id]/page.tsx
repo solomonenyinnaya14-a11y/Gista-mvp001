@@ -18,11 +18,13 @@ export default function PostPage() {
   const { id } = useParams<{ id: string }>(); const router = useRouter(); const supabase = useMemo(() => createClient(), []);
   const [post, setPost] = useState<Post | null>(null); const [editing, setEditing] = useState(false); const [editText, setEditText] = useState(""); const [editCategory, setEditCategory] = useState(""); const [editPhoto, setEditPhoto] = useState<File | null>(null); const [editPhotoPreview, setEditPhotoPreview] = useState(""); const [editBusy, setEditBusy] = useState(false); const [commentsOnly, setCommentsOnly] = useState(false); const [menuOpen, setMenuOpen] = useState(false); const [menuBusy, setMenuBusy] = useState(false); const [comments, setComments] = useState<Comment[]>([]); const [userId, setUserId] = useState<string | null>(null); const [text, setText] = useState(""); const [voice, setVoice] = useState<Blob | null>(null); const [recording, setRecording] = useState(false); const [seconds, setSeconds] = useState(0); const [replyText, setReplyText] = useState<Record<string, string>>({}); const [replyVoice, setReplyVoice] = useState<Record<string, Blob | null>>({}); const [replyRecording, setReplyRecording] = useState<string | null>(null); const [replySeconds, setReplySeconds] = useState<Record<string, number>>({}); const [likeCount, setLikeCount] = useState(0); const [liked, setLiked] = useState(false); const [saved, setSaved] = useState(false); const [showDetails, setShowDetails] = useState(false); const [openReply, setOpenReply] = useState<string | null>(null); const [error, setError] = useState(""); const [loading, setLoading] = useState(true);
   const [renderedAt, setRenderedAt] = useState<number | null>(null);
+  const commentLoadSequence = useRef(0);
   useEffect(() => { const timer = window.setTimeout(() => setRenderedAt(Date.now()), 0); return () => window.clearTimeout(timer); }, []);
 
   const recorder = useRef<MediaRecorder | null>(null); const chunks = useRef<Blob[]>([]); const timer = useRef<ReturnType<typeof setInterval> | null>(null); const replyRecorder = useRef<MediaRecorder | null>(null); const replyChunks = useRef<Blob[]>([]); const replyTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async (currentUserId: string | null) => {
+    const sequence = ++commentLoadSequence.current;
     setError("");
     const [postResult, commentsResult, likeResult, savedResult] = await Promise.all([
       supabase.from("posts").select("id,author_id,body,content_type,media_url,voice_duration_seconds,category,status,created_at").eq("id", id).single(),
@@ -30,6 +32,7 @@ export default function PostPage() {
       supabase.from("likes").select("post_id,user_id", { count: "exact" }).eq("post_id", id),
       currentUserId ? supabase.from("saves").select("post_id").eq("post_id", id).eq("user_id", currentUserId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ]);
+    if (sequence !== commentLoadSequence.current) return;
     if (postResult.error) { setError(postResult.error.message); setLoading(false); return; }
     const rawPost = postResult.data as Omit<Post, "profiles">;
     const rawComments = (commentsResult.data ?? []) as Array<Omit<Comment, "profiles" | "replies" | "likes" | "liked"> & { replies: Array<Omit<Reply, "profiles" | "likes" | "liked">> }>;
@@ -42,6 +45,7 @@ export default function PostPage() {
       replyIds.length ? supabase.from("reply_likes").select("reply_id,user_id").in("reply_id", replyIds) : Promise.resolve({ data: [] as { reply_id: string; user_id: string }[] }),
       currentUserId ? supabase.from("likes").select("post_id").eq("post_id", id).eq("user_id", currentUserId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     ]);
+    if (sequence !== commentLoadSequence.current) return;
     const profiles = new Map((profilesResult.data ?? []).map((profile) => [profile.id, profile as Profile])); const commentLikes: Record<string, number> = {}; const replyLikes: Record<string, number> = {}; const likedComments = new Set<string>(); const likedReplies = new Set<string>();
     (commentLikesResult.data ?? []).forEach((item) => { commentLikes[item.response_id] = (commentLikes[item.response_id] ?? 0) + 1; if (item.user_id === currentUserId) likedComments.add(item.response_id); });
     (replyLikesResult.data ?? []).forEach((item) => { replyLikes[item.reply_id] = (replyLikes[item.reply_id] ?? 0) + 1; if (item.user_id === currentUserId) likedReplies.add(item.reply_id); });
@@ -53,6 +57,18 @@ export default function PostPage() {
   useEffect(() => { const params = new URLSearchParams(window.location.search); if (params.get("dna") === "1") setShowDetails(true); setCommentsOnly(params.get("comments") === "1"); }, []);
 
   useEffect(() => { let active = true; void supabase.auth.getSession().then(({ data }) => { if (!active) return; const uid = data.session?.user?.id ?? null; setUserId(uid); void load(uid); }); return () => { active = false; }; }, [load, supabase]);
+
+  // Keep the detail-page comment list and count in sync with comments created or removed by any user.
+  // Reloading from the database replaces the list, so the local submit and Realtime event cannot double-count.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`post-responses-${id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "responses", filter: `post_id=eq.${id}` }, () => {
+        void load(userId);
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [id, load, supabase, userId]);
   function authRequired() { if (userId) return true; router.push(`/auth?returnTo=${encodeURIComponent(`/post/${id}`)}`); return false; }
   function startEditPost() { if (!post || userId !== post.author_id || menuBusy || editBusy) return; setMenuOpen(false); setEditText(post.body ?? ""); setEditCategory(post.category); setEditPhoto(null); setEditPhotoPreview(post.content_type === "photo" ? (post.media_url ?? "") : ""); setEditing(true); }
   function cancelEditPost() { if (editPhotoPreview && editPhotoPreview !== post?.media_url) URL.revokeObjectURL(editPhotoPreview); setEditPhoto(null); setEditPhotoPreview(""); setEditing(false); }

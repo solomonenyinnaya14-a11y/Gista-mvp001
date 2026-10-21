@@ -166,7 +166,7 @@ export default function AdminUsersPage() {
           <div className="users-pagination"><button disabled={offset === 0 || busy} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>Previous</button><span>Page {Math.floor(offset / PAGE_SIZE) + 1} of {Math.max(1, Math.ceil(total / PAGE_SIZE))}</span><button disabled={offset + PAGE_SIZE >= total || busy} onClick={() => setOffset(offset + PAGE_SIZE)}>Next</button></div>
         </section>
         <section className="users-detail">
-          {!selected ? <div className="users-empty"><strong>Select an account</strong><p>Review the account's identity status and reports, then record an internal decision or take moderation action when evidence supports it.</p></div> : <>
+          {!selected ? <div className="users-empty"><strong>Select an account</strong><p>Review the account&apos;s identity status and reports, then record an internal decision or take moderation action when evidence supports it.</p></div> : <>
             <div className="users-detail-profile">
               {selected.avatar_url ? <img src={selected.avatar_url} alt="" /> : <span className="users-avatar users-large-avatar">{(selected.display_name || selected.username || "G").slice(0,1).toUpperCase()}</span>}
               <div><h2>{selected.display_name || "Gista user"}</h2><p>@{selected.username || "no-username"}</p><small>Joined {new Date(selected.created_at).toLocaleDateString()} · ID {selected.profile_id.slice(0,8)}</small></div>
