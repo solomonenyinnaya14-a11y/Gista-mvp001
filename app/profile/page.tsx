@@ -13,6 +13,9 @@ import { browserStorage, invalidateUserFeedCache } from "@/lib/feed-cache";
 type Profile = { id: string; username: string | null; display_name: string | null; bio: string | null; avatar_url: string | null; cover_url: string | null };
 type Post = { id: string; content_type: string; body: string | null; media_url: string | null; category: string; status: string | null; created_at: string; voice_duration_seconds: number | null; likes: number; comments: number; saves: number; shares: number; liked: boolean; saved: boolean };
 const PROFILE_SELECT = "id,username,display_name,bio,avatar_url,cover_url";
+const PROFILE_CACHE_PREFIX="gista-profile-cache:";
+function readCachedProfile(userId:string):Profile|null{try{const raw=window.localStorage.getItem(PROFILE_CACHE_PREFIX+userId);return raw?JSON.parse(raw) as Profile:null}catch{return null}}
+function writeCachedProfile(profile:Profile){try{window.localStorage.setItem(PROFILE_CACHE_PREFIX+profile.id,JSON.stringify(profile))}catch{}}
 
 export default function ProfilePage() {
   const supabase = useMemo(() => createClient(), []);
@@ -37,6 +40,8 @@ export default function ProfilePage() {
     const { data: { session } } = await supabase.auth.getSession();
     const user = session?.user ?? null;
     if (!user) { router.replace("/auth"); return; }
+    const cachedProfile = readCachedProfile(user.id);
+    if (cachedProfile) { setProfile(cachedProfile); setDisplayName(cachedProfile.display_name ?? ""); setUsername(cachedProfile.username ?? ""); setBio(cachedProfile.bio ?? ""); }
     const fallbackName = user.email?.split("@")[0] ?? "Gista User";
     const [profileResult, statsResult, initialPostsResult, totalLikesResult] = await Promise.all([
       supabase.from("profiles").select(PROFILE_SELECT).eq("id", user.id).maybeSingle(),
@@ -58,7 +63,7 @@ export default function ProfilePage() {
       data = created.data as Profile | null;
     }
     if (profileResult.error && !data) setError(profileResult.error.message);
-    if (data) { setProfile(data); setDisplayName(data.display_name ?? fallbackName); setUsername(data.username ?? ""); setBio(data.bio ?? ""); }
+    if (data) { writeCachedProfile(data); setProfile(data); setDisplayName(data.display_name ?? fallbackName); setUsername(data.username ?? ""); setBio(data.bio ?? ""); }
     const rawStats = statsResult.data?.[0] as { gists?: number; followers?: number; following?: number } | undefined;
     setStats({ posts: Number(rawStats?.gists ?? 0), likes: totalLikesResult.count ?? 0, followers: Number(rawStats?.followers ?? 0), following: Number(rawStats?.following ?? 0) });
     const rawPosts = (postsResult.data ?? []) as Array<Omit<Post, "likes" | "comments" | "saves" | "shares" | "liked" | "saved">>;
@@ -104,7 +109,7 @@ export default function ProfilePage() {
     const column = kind === "avatar" ? "avatar_url" : "cover_url";
     const { data: updated, error: updateError } = await supabase.from("profiles").update({ [column]: publicUrl }).eq("id", user.id).select(PROFILE_SELECT).single();
     if (updateError || !updated) { await supabase.storage.from("profile-media").remove([path]); setError(updateError?.message ?? "Profile could not be updated."); }
-    else { const nextProfile = updated as Profile; setProfile(nextProfile); invalidateUserFeedCache(browserStorage(), user.id); window.dispatchEvent(new CustomEvent("gista:profile-media-updated", { detail: { profile: nextProfile } })); setMessage(kind === "avatar" ? "Profile photo updated." : "Cover photo updated."); }
+    else { const nextProfile = updated as Profile; writeCachedProfile(nextProfile); setProfile(nextProfile); invalidateUserFeedCache(browserStorage(), user.id); window.dispatchEvent(new CustomEvent("gista:profile-media-updated", { detail: { profile: nextProfile } })); setMessage(kind === "avatar" ? "Profile photo updated." : "Cover photo updated."); }
     if (kind === "avatar") setAvatarUploading(false); else setCoverUploading(false);
   }
 
@@ -121,7 +126,7 @@ export default function ProfilePage() {
     if (!user) { setSaving(false); router.replace("/auth"); return; }
     const { data: updated, error: updateError } = await supabase.from("profiles").update({ display_name: cleanName, username: cleanUsername || null, bio: cleanBio }).eq("id", user.id).select(PROFILE_SELECT).single();
     if (updateError || !updated) { setError(updateError?.code === "23505" ? "That username is already taken." : updateError?.message ?? "Profile could not be saved."); setSaving(false); return; }
-    setProfile(updated as Profile); setDisplayName(updated.display_name ?? ""); setUsername(updated.username ?? ""); setBio(updated.bio ?? ""); setEdit(false); setMessage("Profile updated."); setSaving(false);
+    writeCachedProfile(updated as Profile); setProfile(updated as Profile); setDisplayName(updated.display_name ?? ""); setUsername(updated.username ?? ""); setBio(updated.bio ?? ""); setEdit(false); setMessage("Profile updated."); setSaving(false);
   }
 
   async function toggleLike(post: Post) {
