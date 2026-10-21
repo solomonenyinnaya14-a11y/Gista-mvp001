@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function AnalyticsTracker() {
   const pathname = usePathname();
   const lastLoggedPath = useRef("");
-  const supabaseRef = useRef<ReturnType<typeof createClient> | null>(null);
-
-  if (!supabaseRef.current) supabaseRef.current = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     const path = pathname || "/";
@@ -18,7 +16,6 @@ export default function AnalyticsTracker() {
     lastLoggedPath.current = path;
 
     let cancelled = false;
-    const supabase = supabaseRef.current!;
     void (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (cancelled || !user) return;
