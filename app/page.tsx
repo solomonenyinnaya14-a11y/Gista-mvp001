@@ -53,7 +53,14 @@ export default function HomePage(){
   async function toggleSave(p:Post){if(!user){router.push("/auth");return}setBusy(p.id+"s");const next=!p.saved;setPosts(x=>{const nextPosts=x.map(i=>i.id===p.id?{...i,saved:next,saves:Math.max(0,i.saves+(next?1:-1))}:i);cacheCurrentPosts(nextPosts,user.id);return nextPosts});const r=next?await supabase.from("saves").insert({post_id:p.id,user_id:user.id}):await supabase.from("saves").delete().eq("post_id",p.id).eq("user_id",user.id);if(r.error)setPosts(x=>{const nextPosts=x.map(i=>i.id===p.id?{...i,saved:!next,saves:Math.max(0,i.saves+(next?-1:1))}:i);cacheCurrentPosts(nextPosts,user.id);return nextPosts});setBusy(null)}
   async function sharePost(p:Post){if(!user){router.push("/auth");return}const url=location.origin+"/post/"+p.id;try{if(navigator.share)await navigator.share({title:"Gista",text:p.body??"Check out this Post on Gista",url});else await navigator.clipboard.writeText(url);const r=await supabase.from("shares").insert({post_id:p.id,user_id:user.id});if(!r.error)setPosts(x=>{const nextPosts=x.map(i=>i.id===p.id?{...i,shares:i.shares+1}:i);cacheCurrentPosts(nextPosts,user.id);return nextPosts})}catch{}}
   const displayName=profile?.display_name??user?.email?.split("@")[0]??"Gista User";
-  if (!authChecked) return <main className="app-shell"><section className="content"><div className="feed-skeleton"><div className="skeleton-post"/><div className="skeleton-post"/></div></section></main>;
+  if (!authChecked) return <main className="app-shell" aria-busy="true">
+    <header className="topbar"><div className="brand"><span className="gista-mark gista-mark-feed" aria-hidden="true"><span>G</span></span><span>Gista</span></div></header>
+    <section className="content">
+      <div className="feed-tabs" aria-hidden="true"><span className="tab active">Discover</span><span className="tab">Following</span><span className="tab">Trending</span></div>
+      <div className="composer" aria-hidden="true"><div className="avatar">G</div><div className="composer-input">What&apos;s on your mind?</div><div className="create-btn"><Plus size={19}/></div></div>
+      <div className="feed"><div className="feed-skeleton"><div className="skeleton-post"/><div className="skeleton-post"/></div></div>
+    </section>
+  </main>;
   if (!user) return <LandingPage />;
 
   return <main className="app-shell">
