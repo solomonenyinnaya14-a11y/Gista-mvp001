@@ -55,12 +55,19 @@ export default function PublicProfile() {
     const { data, error } = await supabase.from("profiles").select("id,username,display_name,bio,avatar_url,cover_url,is_private,following_private").eq("username", username).single();
     if (error || !data) { setProfile(null); setIsVerified(false); setLoading(false); return; }
     if (user?.id === data.id) { router.replace("/profile"); return; }
-    const [followState, statsResult, postsResult, totalLikesResult] = await Promise.all([
+    const [followState, statsResult, initialPostsResult, totalLikesResult] = await Promise.all([
       user ? supabase.from("follows").select("follower_id").eq("follower_id", user.id).eq("following_id", data.id).maybeSingle() : Promise.resolve({ data: null }),
       supabase.rpc("get_profile_stats", { target_profile_id: data.id }),
       supabase.from("posts").select("id,body,content_type,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", data.id).order("created_at", { ascending: false }).limit(30),
       supabase.from("likes").select("post_id, posts!inner(author_id)", { count: "exact", head: true }).eq("posts.author_id", data.id),
     ]);
+    let postsResult = initialPostsResult;
+    // Avoid declaring a profile empty on a transient first response after navigation.
+    if ((postsResult.data ?? []).length === 0 && !postsResult.error) {
+      await new Promise((resolve) => window.setTimeout(resolve, 300));
+      const retry = await supabase.from("posts").select("id,body,content_type,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", data.id).order("created_at", { ascending: false }).limit(30);
+      if (!retry.error && (retry.data ?? []).length > 0) postsResult = retry;
+    }
     const { data: verification } = await supabase.from("verified_profiles").select("profile_id").eq("profile_id", data.id).eq("verification_type", "official").maybeSingle();
     const profileStats = statsResult.data?.[0] as { gists?: number; posts?: number; followers?: number; following?: number } | undefined;
     const isFollowing = !!followState.data;

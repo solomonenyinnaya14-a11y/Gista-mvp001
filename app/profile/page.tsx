@@ -38,12 +38,20 @@ export default function ProfilePage() {
     const user = session?.user ?? null;
     if (!user) { router.replace("/auth"); return; }
     const fallbackName = user.email?.split("@")[0] ?? "Gista User";
-    const [profileResult, statsResult, postsResult, totalLikesResult] = await Promise.all([
+    const [profileResult, statsResult, initialPostsResult, totalLikesResult] = await Promise.all([
       supabase.from("profiles").select(PROFILE_SELECT).eq("id", user.id).maybeSingle(),
       supabase.rpc("get_profile_stats", { target_profile_id: user.id }),
       supabase.from("posts").select("id,content_type,body,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", user.id).order("created_at", { ascending: false }).limit(30),
       supabase.from("likes").select("post_id, posts!inner(author_id)", { count: "exact", head: true }).eq("posts.author_id", user.id),
     ]);
+    let postsResult = initialPostsResult;
+    // Profile queries can race the first authenticated request after navigation.
+    // Retry a transient empty result before treating it as a genuinely empty profile.
+    if ((postsResult.data ?? []).length === 0 && !postsResult.error) {
+      await new Promise((resolve) => window.setTimeout(resolve, 300));
+      const retry = await supabase.from("posts").select("id,content_type,body,media_url,category,status,created_at,voice_duration_seconds").eq("author_id", user.id).order("created_at", { ascending: false }).limit(30);
+      if (!retry.error && (retry.data ?? []).length > 0) postsResult = retry;
+    }
     let data = profileResult.data as Profile | null;
     if (!data && !profileResult.error) {
       const created = await supabase.from("profiles").insert({ id: user.id, display_name: fallbackName, username: null, bio: "" }).select(PROFILE_SELECT).single();
@@ -158,7 +166,7 @@ export default function ProfilePage() {
         {(loading||avatarUploading||coverUploading||message||error)&&<div className={error?"profile-feedback error":"profile-feedback"}>{loading?"Loading profile details…":avatarUploading?"Uploading profile photo…":coverUploading?"Uploading cover photo…":message||error}</div>}
       </section>
       {edit&&<section className="profile-editor"><div className="editor-heading"><div><h2>Edit profile</h2><p>Update your name, username and bio.</p></div><UserRound size={22}/></div><label>Display name<input value={displayName} maxLength={60} onChange={(e)=>setDisplayName(e.target.value)} placeholder="Your display name" /></label><label>Username<div className="username-input"><span>@</span><input value={username} maxLength={30} onChange={(e)=>setUsername(e.target.value.replace(/\s/g,""))} placeholder="username" /></div></label><label>Bio<textarea value={bio} maxLength={160} onChange={(e)=>setBio(e.target.value)} placeholder="Tell people about yourself…" /><small>{bio.length}/160</small></label><button className="profile-save" type="button" onClick={()=>void saveProfile()} disabled={saving}><Check size={17}/> {saving?"Saving…":"Save changes"}</button></section>}
-      <section className="profile-content" id="my-posts"><div className="section-title"><h2>Posts</h2><span>{stats.posts}</span></div>{posts.length===0?<div className="profile-empty"><div className="empty-g">G</div><h3>No Posts yet</h3><p>Share your first thought, story, photo, or voice Post.</p><Link href="/create" className="profile-primary">Create Post</Link></div>:<div className="profile-gists">{posts.map((post)=><article className="profile-gist" key={post.id}>
+      <section className="profile-content" id="my-posts"><div className="section-title"><h2>Posts</h2><span>{stats.posts}</span></div>{loading?<div className="feed-skeleton" aria-label="Loading Posts"><div className="skeleton-post"/><div className="skeleton-post"/></div>:posts.length===0?<div className="profile-empty"><div className="empty-g">G</div><h3>No Posts yet</h3><p>Share your first thought, story, photo, or voice Post.</p><Link href="/create" className="profile-primary">Create Post</Link></div>:<div className="profile-gists">{posts.map((post)=><article className="profile-gist" key={post.id}>
         <div className="post-head"><div className="avatar" style={{overflow:"hidden"}}>{profile?.avatar_url?<img src={profile.avatar_url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:initials}</div><div className="identity"><strong>{profile?.display_name||displayName||"Gista User"}</strong><span>@{profileUsername||"user"} · {new Date(post.created_at).toLocaleString()}</span></div><span className="category">{post.category}</span></div>
         <Link className="profile-gist-content" href={"/post/"+post.id}>{post.body&&<p>{post.body}</p>}{post.content_type==="photo"&&post.media_url&&<img src={post.media_url} alt="Post" loading="lazy"/>}</Link>
         {post.content_type==="voice"&&post.media_url&&<div className="profile-gist-voice"><VoiceNote src={post.media_url} durationHint={post.voice_duration_seconds}/></div>}
