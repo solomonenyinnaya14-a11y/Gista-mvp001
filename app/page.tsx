@@ -15,7 +15,7 @@ type FeedRow={id:string;body:string|null;content_type:string;media_url:string|nu
 type Post=FeedRow&{profiles:Profile|null;likes:number;responses:number;shares:number;saves:number};
 const PROFILE_CACHE_PREFIX="gista-profile-cache:";
 function readCachedProfile(userId:string):Profile|null{try{const raw=window.localStorage.getItem(PROFILE_CACHE_PREFIX+userId);return raw?JSON.parse(raw) as Profile:null}catch{return null}}
-function writeCachedProfile(profile:Profile){try{window.localStorage.setItem(PROFILE_CACHE_PREFIX+profile.id,JSON.stringify(profile))}catch{}}
+function writeCachedProfile(profile:Profile){try{const raw=window.localStorage.getItem(PROFILE_CACHE_PREFIX+profile.id);const existing=raw?JSON.parse(raw):{};window.localStorage.setItem(PROFILE_CACHE_PREFIX+profile.id,JSON.stringify({...existing,...profile}))}catch{}}
 
 export default function HomePage(){
   const supabase=useMemo(()=>createClient(),[]),router=useRouter();
