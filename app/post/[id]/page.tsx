@@ -53,6 +53,18 @@ export default function PostPage() {
   useEffect(() => { const params = new URLSearchParams(window.location.search); if (params.get("dna") === "1") setShowDetails(true); setCommentsOnly(params.get("comments") === "1"); }, []);
 
   useEffect(() => { let active = true; void supabase.auth.getSession().then(({ data }) => { if (!active) return; const uid = data.session?.user?.id ?? null; setUserId(uid); void load(uid); }); return () => { active = false; }; }, [load, supabase]);
+
+  // Keep the detail-page comment list and count in sync with comments created or removed by any user.
+  // Reloading from the database replaces the list, so the local submit and Realtime event cannot double-count.
+  useEffect(() => {
+    const channel = supabase
+      .channel(`post-responses-${id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "responses", filter: `post_id=eq.${id}` }, () => {
+        void load(userId);
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [id, load, supabase, userId]);
   function authRequired() { if (userId) return true; router.push(`/auth?returnTo=${encodeURIComponent(`/post/${id}`)}`); return false; }
   function startEditPost() { if (!post || userId !== post.author_id || menuBusy || editBusy) return; setMenuOpen(false); setEditText(post.body ?? ""); setEditCategory(post.category); setEditPhoto(null); setEditPhotoPreview(post.content_type === "photo" ? (post.media_url ?? "") : ""); setEditing(true); }
   function cancelEditPost() { if (editPhotoPreview && editPhotoPreview !== post?.media_url) URL.revokeObjectURL(editPhotoPreview); setEditPhoto(null); setEditPhotoPreview(""); setEditing(false); }
