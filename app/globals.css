@@ -499,3 +499,5 @@
   text-align: center;
   white-space: nowrap;
 }
+
+.voice-player{width:100%;margin-top:12px;border:1px solid #eeeaf4;border-radius:14px;background:#fcfbff;padding:10px 12px}.feed-voice-player{margin-top:10px}.voice-transcript{margin-top:8px;padding:0 2px}.voice-transcript-label{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#7c3aed}.voice-transcript p{font-size:14px;line-height:1.55;color:#393440;margin:5px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}.voice-transcript .transcript-status{font-size:12px;color:#898391}.transcript-toggle{font-size:12px;font-weight:700;color:#7c3aed;margin-top:7px;padding:3px 0}.voice-player audio{display:block;width:100%;min-width:0}
