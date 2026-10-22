@@ -8,7 +8,12 @@ const allowedTables = new Set(["posts", "responses", "replies"]);
 
 export async function POST(request: Request) {
   const supabase = await createServerSupabaseClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  // The browser Supabase client may hold the session in its own storage rather than
+  // forwarding it as a server cookie. Accept its access token explicitly.
+  const bearerToken = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  const { data: { user }, error: authError } = bearerToken
+    ? await supabase.auth.getUser(bearerToken)
+    : await supabase.auth.getUser();
   if (authError || !user) {
     return NextResponse.json({ error: "Sign in to transcribe this voice recording." }, { status: 401 });
   }
