@@ -3,7 +3,9 @@
 // another account's cached feed (which includes that account's liked/saved flags
 // and any private-account posts it was allowed to see).
 export const FEED_CACHE_PREFIX = "gista:feed:";
-export const FEED_CACHE_MAX_AGE_MS = 10 * 60 * 1000;
+// Feed order stays frozen for the active browser session. The cache is cleared on
+// pagehide (real reload/site exit), so a time-based expiry must not silently reshuffle it.
+export const FEED_CACHE_MAX_AGE_MS = Number.MAX_SAFE_INTEGER;
 
 export type FeedCacheStorage = Pick<Storage, "getItem" | "setItem" | "removeItem" | "key" | "length">;
 
