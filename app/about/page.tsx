@@ -11,6 +11,7 @@ export default function AboutPage() {
       <p>Gista supports text, photo and voice Posts. Video and other advanced features may come later.</p>
       <p>Gista is built around conversation, not popularity.</p>
       <small>Gista MVP</small>
+      <p style={{ fontSize: "12px", opacity: 0.75, marginTop: "8px" }}>A product of Black Core Tech</p>
     </section>
   </main>;
 }
