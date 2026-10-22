@@ -17,3 +17,5 @@ Next.js 16 + React 19 + Supabase + PostgreSQL.
 Create a local `.env.local` from `.env.example` with the Supabase URL and publishable key, then run `npm install` and `npm run dev`.
 
 The `gista-rebuild` branch is the active rebuild branch. The original starter archive remains untouched on `main` until the rebuild is reviewed.
+
+Voice transcript feature preview: generated transcripts appear beneath voice Gists and responses when the Supabase migration and server-side transcription API key are configured.
