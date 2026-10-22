@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     }
 
     const form = new FormData();
-    form.append("model", "gpt-transcribe");
+    form.append("model", "gpt-4o-mini-transcribe");
     form.append("response_format", "json");
     form.append("file", new Blob([audioBytes], { type: audioResponse.headers.get("content-type") || "audio/webm" }), "voice.webm");
 
