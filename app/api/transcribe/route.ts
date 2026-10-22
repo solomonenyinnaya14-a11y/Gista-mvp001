@@ -25,10 +25,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing or invalid recording details." }, { status: 400 });
   }
 
+  const table = recordType as "posts" | "responses" | "replies";
   const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const apiKey = process.env.OPENAI_API_KEY;
   if (!projectUrl || !apiKey) {
-    await supabase.from(recordType).update({ transcript_status: "failed" }).eq("id", recordId).eq("author_id", user.id);
+    await supabase.from(table).update({ transcript_status: "failed" }).eq("id", recordId).eq("author_id", user.id);
     return NextResponse.json({ error: "Transcription is not configured yet." }, { status: 503 });
   }
 
@@ -46,13 +47,17 @@ export async function POST(request: Request) {
 
   const { data: ownedRecord, error: recordError } = await supabase
     .from(recordType)
-    .select("id,content_type,media_url")
+    .select("id,content_type,media_url,transcript,transcript_status")
     .eq("id", recordId)
     .eq("author_id", user.id)
     .single();
 
   if (recordError || !ownedRecord || ownedRecord.content_type !== "voice" || ownedRecord.media_url !== mediaUrl) {
     return NextResponse.json({ error: "Recording not found or not owned by this account." }, { status: 404 });
+  }
+
+  if (ownedRecord.transcript_status === "complete" && ownedRecord.transcript) {
+    return NextResponse.json({ transcript: ownedRecord.transcript, status: "complete" });
   }
 
   try {
