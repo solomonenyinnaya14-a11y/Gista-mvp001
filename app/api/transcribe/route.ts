@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -7,10 +8,20 @@ export const maxDuration = 60;
 const allowedTables = new Set(["posts", "responses", "replies"]);
 
 export async function POST(request: Request) {
-  const supabase = await createServerSupabaseClient();
-  // The browser Supabase client may hold the session in its own storage rather than
-  // forwarding it as a server cookie. Accept its access token explicitly.
+  // The browser Supabase client may keep its session in browser storage rather
+  // than a server cookie. When a bearer token is supplied, use that token for BOTH
+  // Auth validation and PostgREST requests so RLS sees the same authenticated user.
   const bearerToken = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  const supabase = bearerToken
+    ? createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+        {
+          global: { headers: { Authorization: `Bearer ${bearerToken}` } },
+          auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+        },
+      )
+    : await createServerSupabaseClient();
   const { data: { user }, error: authError } = bearerToken
     ? await supabase.auth.getUser(bearerToken)
     : await supabase.auth.getUser();
