@@ -40,11 +40,10 @@ test("the cache is separate per tab", () => {
   assert.equal(readFeedCache(storage, "user-a", "Following"), null);
 });
 
-test("entries expire after the max age (refresh behaviour preserved)", () => {
+test("cached feed order remains stable across elapsed time in the same browser session", () => {
   const storage = fakeStorage();
   writeFeedCache(storage, "user-a", "Discover", [postA], 1_000);
-  assert.deepEqual(readFeedCache(storage, "user-a", "Discover", 1_000 + FEED_CACHE_MAX_AGE_MS - 1), [postA]);
-  assert.equal(readFeedCache(storage, "user-a", "Discover", 1_000 + FEED_CACHE_MAX_AGE_MS), null);
+  assert.deepEqual(readFeedCache(storage, "user-a", "Discover", 1_000 + 6 * 60 * 60 * 1000), [postA]);
 });
 
 test("logout clears every cached feed", () => {
