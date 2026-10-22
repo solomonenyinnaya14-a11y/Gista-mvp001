@@ -101,7 +101,7 @@ export default function CreatePage() {
       media_url = supabase.storage.from("gist-audio").getPublicUrl(path).data.publicUrl;
     }
 
-    const { error: insertError } = await supabase.from("posts").insert({
+    const { data: createdPost, error: insertError } = await supabase.from("posts").insert({
       author_id: user.id,
       content_type: mode,
       body: mode === "text" ? text.trim() : null,
@@ -109,7 +109,8 @@ export default function CreatePage() {
       category,
       status: "growing",
       voice_duration_seconds: mode === "voice" ? seconds : null,
-    });
+      transcript_status: mode === "voice" ? "pending" : "not_applicable",
+    }).select("id").single();
 
     if (insertError) {
       if (media_url) {
@@ -120,7 +121,16 @@ export default function CreatePage() {
         }
       }
       setError(insertError.message);
-    } else router.push("/");
+    } else {
+      if (mode === "voice" && createdPost?.id && media_url) {
+        void fetch("/api/transcribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ recordType: "posts", recordId: createdPost.id, mediaUrl: media_url }),
+        }).catch(() => undefined);
+      }
+      router.push("/");
+    }
     setLoading(false);
   }
 
