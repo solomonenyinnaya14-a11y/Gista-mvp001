@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import VoiceNote from "@/components/VoiceNote";
 
 type RecordType = "posts" | "responses" | "replies";
 
@@ -24,6 +25,7 @@ export default function VoicePlayer({
   useEffect(() => {
     setTranscript(initialTranscript ?? "");
     setStatus(initialStatus ?? "pending");
+    setExpanded(false);
   }, [initialTranscript, initialStatus, recordId]);
 
   useEffect(() => {
@@ -37,7 +39,7 @@ export default function VoicePlayer({
       setStatus(data.transcript_status ?? "failed");
     };
     const interval = setInterval(refresh, 3500);
-    refresh();
+    void refresh();
     return () => { active = false; clearInterval(interval); };
   }, [recordId, recordType, status]);
 
@@ -46,7 +48,7 @@ export default function VoicePlayer({
 
   return (
     <div className={className ?? "voice-player"}>
-      <audio controls preload="metadata" src={src} style={{ width: "100%" }} />
+      <VoiceNote src={src} />
       <div className="voice-transcript" aria-live="polite">
         <div className="voice-transcript-label">Transcript</div>
         {transcript ? (
