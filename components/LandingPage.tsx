@@ -211,6 +211,12 @@ export default function LandingPage() {
       <footer className="landing-footer">
         <span>© 2026 Gista</span>
         <span>Every Post Starts a Conversation.</span>
+        <span
+          className="landing-company-imprint"
+          style={{ fontSize: "10px", whiteSpace: "nowrap", opacity: 0.8 }}
+        >
+          By Black Core Tech
+        </span>
       </footer>
     </main>
   );
