@@ -29,7 +29,7 @@ export default function VoicePlayer({
   }, [initialTranscript, initialStatus, recordId]);
 
   useEffect(() => {
-    if (status !== "pending") return;
+    if (status !== "pending" && status !== "failed") return;
     const supabase = createClient();
     let active = true;
     let retryStarted = false;
@@ -51,10 +51,10 @@ export default function VoicePlayer({
       // Older voice records can be left in "pending" if the original background
       // request never reached the transcription API. Retry once when the record's
       // owner views it, but avoid duplicating the request for freshly created audio.
-      const isOldPending = currentStatus === "pending"
+      const isOldUnresolved = (currentStatus === "pending" || currentStatus === "failed")
         && Date.now() - new Date(data.created_at).getTime() > 90_000;
       if (
-        isOldPending
+        isOldUnresolved
         && !retryStarted
         && session?.access_token
         && session.user.id === data.author_id
