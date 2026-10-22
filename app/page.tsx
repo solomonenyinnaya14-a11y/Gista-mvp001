@@ -27,30 +27,18 @@ export default function HomePage(){
   useEffect(()=>{postsRef.current=posts},[posts]);
   useEffect(()=>{let active=true;const init=async()=>{const{data}=await supabase.auth.getSession();if(!active)return;const u=data.session?.user?{id:data.session.user.id,email:data.session.user.email}:null;setUser(u);setAuthChecked(true);initialLoadDone.current=false;if(u)loadedFeedKey.current=`${u.id}:${tab}`;const navigationType=performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming|undefined;const legacyNavigationType=(performance as Performance & {navigation?:{type?:number}}).navigation?.type;const isReload=navigationType?.type==="reload"||legacyNavigationType===1;void loadPosts(u,isReload);void loadProfile(u)};void init();const{data:sub}=supabase.auth.onAuthStateChange((event,session)=>{if(event!=="SIGNED_IN"&&event!=="SIGNED_OUT")return;const u=session?.user?{id:session.user.id,email:session.user.email}:null;clearFeedCache(browserStorage(),u?.id);setUser(u);setAuthChecked(true);initialLoadDone.current=false;void Promise.all([loadPosts(u),loadProfile(u)])});return()=>{active=false;sub.subscription.unsubscribe()}},[supabase,loadProfile]);
   useEffect(()=>{if(!user)return;const key=`${user.id}:${tab}`;if(loadedFeedKey.current===key)return;loadedFeedKey.current=key;void loadPosts(user)},[tab,user,loadPosts]);
-  // Keep response counts live while the feed is mounted. The cached feed is only a fast
-  // first paint; Postgres changes reconcile new/deleted responses without a manual refresh.
-  useEffect(()=>{if(!user)return;let refreshTimer:number|undefined;
-    const scheduleRefresh=()=>{if(refreshTimer!==undefined)window.clearTimeout(refreshTimer);refreshTimer=window.setTimeout(()=>void loadPosts(user,true),250)};
-    const updateResponseCount=(postId:string,delta:number)=>{feedRequestId.current+=1;setPosts(current=>{if(!current.some(post=>post.id===postId))return current;const next=current.map(post=>post.id===postId?{...post,responses:Math.max(0,post.responses+delta)}:post);writeFeedCache(browserStorage(),user.id,tab,next);return next});scheduleRefresh()};
+  // Keep response counts live without reloading/reordering the feed. Opening or
+  // leaving a Post's comments must not silently replace the feed order; a full feed
+  // refresh happens only when the user explicitly refreshes or changes feed tab.
+  useEffect(()=>{if(!user)return;
+    const updateResponseCount=(postId:string,delta:number)=>{setPosts(current=>{if(!current.some(post=>post.id===postId))return current;const next=current.map(post=>post.id===postId?{...post,responses:Math.max(0,post.responses+delta)}:post);writeFeedCache(browserStorage(),user.id,tab,next);postsRef.current=next;return next})};
     const channel=supabase.channel("gista-feed-response-counts")
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"responses"},payload=>{const postId=String((payload.new as {post_id?:string}).post_id??"");if(postId)updateResponseCount(postId,1)})
       .on("postgres_changes",{event:"DELETE",schema:"public",table:"responses"},payload=>{const postId=String((payload.old as {post_id?:string}).post_id??"");if(postId)updateResponseCount(postId,-1)})
       .subscribe();
-    let wasHidden=document.visibilityState==="hidden";
-    let wasFocused=document.hasFocus();
-    let lastRefreshAt=0;
-    const refresh=()=>{const now=Date.now();if(now-lastRefreshAt<1500)return;lastRefreshAt=now;void loadPosts(user,true)};
-    const onBlur=()=>{wasFocused=false};
-    const onFocus=()=>{if(!wasFocused){wasFocused=true;refresh()}};
-    const onVisibility=()=>{if(document.visibilityState==="visible"&&wasHidden)refresh();wasHidden=document.visibilityState==="hidden"};
-    const onPageShow=(event:PageTransitionEvent)=>{if(event.persisted)refresh()};
-    window.addEventListener("blur",onBlur);
-    window.addEventListener("focus",onFocus);
-    window.addEventListener("pageshow",onPageShow);
-    document.addEventListener("visibilitychange",onVisibility);
-    return()=>{if(refreshTimer!==undefined)window.clearTimeout(refreshTimer);window.removeEventListener("blur",onBlur);window.removeEventListener("focus",onFocus);window.removeEventListener("pageshow",onPageShow);document.removeEventListener("visibilitychange",onVisibility);void supabase.removeChannel(channel)};
-  },[user,supabase,tab,loadPosts]);
-  useEffect(()=>{if(!user)return;const onProfileMediaUpdated=(event:Event)=>{const detail=(event as CustomEvent<{profile?:{id:string;display_name:string|null;username:string|null;avatar_url:string|null}}>).detail;const next=detail?.profile;if(!next||next.id!==user.id)return;setProfile(next);setPosts(current=>current.map(post=>post.author_id===user.id?{...post,profiles:{id:user.id,avatar_url:next.avatar_url,display_name:next.display_name,username:next.username}}:post));void loadPosts(user,true)};window.addEventListener("gista:profile-media-updated",onProfileMediaUpdated);return()=>window.removeEventListener("gista:profile-media-updated",onProfileMediaUpdated)},[user,loadPosts]);
+    return()=>{void supabase.removeChannel(channel)};
+  },[user,supabase,tab]);
+    useEffect(()=>{if(!user)return;const onProfileMediaUpdated=(event:Event)=>{const detail=(event as CustomEvent<{profile?:{id:string;display_name:string|null;username:string|null;avatar_url:string|null}}>).detail;const next=detail?.profile;if(!next||next.id!==user.id)return;setProfile(next);setPosts(current=>current.map(post=>post.author_id===user.id?{...post,profiles:{id:user.id,avatar_url:next.avatar_url,display_name:next.display_name,username:next.username}}:post));void loadPosts(user,true)};window.addEventListener("gista:profile-media-updated",onProfileMediaUpdated);return()=>window.removeEventListener("gista:profile-media-updated",onProfileMediaUpdated)},[user,loadPosts]);
   function cacheCurrentPosts(next:Post[],userId:string){writeFeedCache(browserStorage(),userId,tab,next)}
   async function toggleLike(p:Post){if(!user){router.push("/auth");return}if(busy===p.id+"l")return;setBusy(p.id+"l");const next=!p.liked;setPosts(x=>{const nextPosts=x.map(i=>i.id===p.id?{...i,liked:next,likes:Math.max(0,i.likes+(next?1:-1))}:i);cacheCurrentPosts(nextPosts,user.id);return nextPosts});const r=next?await supabase.from("likes").insert({post_id:p.id,user_id:user.id}):await supabase.from("likes").delete().eq("post_id",p.id).eq("user_id",user.id);if(r.error)setPosts(x=>{const nextPosts=x.map(i=>i.id===p.id?{...i,liked:p.liked,likes:p.likes}:i);cacheCurrentPosts(nextPosts,user.id);return nextPosts});setBusy(null)}
   async function toggleSave(p:Post){if(!user){router.push("/auth");return}setBusy(p.id+"s");const next=!p.saved;setPosts(x=>{const nextPosts=x.map(i=>i.id===p.id?{...i,saved:next,saves:Math.max(0,i.saves+(next?1:-1))}:i);cacheCurrentPosts(nextPosts,user.id);return nextPosts});const r=next?await supabase.from("saves").insert({post_id:p.id,user_id:user.id}):await supabase.from("saves").delete().eq("post_id",p.id).eq("user_id",user.id);if(r.error)setPosts(x=>{const nextPosts=x.map(i=>i.id===p.id?{...i,saved:!next,saves:Math.max(0,i.saves+(next?-1:1))}:i);cacheCurrentPosts(nextPosts,user.id);return nextPosts});setBusy(null)}
