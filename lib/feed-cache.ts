@@ -3,8 +3,10 @@
 // another account's cached feed (which includes that account's liked/saved flags
 // and any private-account posts it was allowed to see).
 export const FEED_CACHE_PREFIX = "gista:feed:";
-// Feed order stays frozen for the active browser session. The cache is cleared on
-// pagehide (real reload/site exit), so a time-based expiry must not silently reshuffle it.
+// Preserve the selected post list/order for the active browser session. The cache
+// is intentionally not cleared on pagehide because Safari can fire pagehide during
+// navigation/BFCache transitions. A hard reload is handled by HomePage's reload
+// detector; deterministic database ranking prevents accidental reshuffles on refetch.
 export const FEED_CACHE_MAX_AGE_MS = Number.MAX_SAFE_INTEGER;
 
 export type FeedCacheStorage = Pick<Storage, "getItem" | "setItem" | "removeItem" | "key" | "length">;
