@@ -7,6 +7,28 @@ export const FEED_CACHE_PREFIX = "gista:feed:";
 // pagehide (real reload/site exit), so a time-based expiry must not silently reshuffle it.
 export const FEED_CACHE_MAX_AGE_MS = Number.MAX_SAFE_INTEGER;
 
+// Navigation Timing describes the whole document, not the current Next.js route.
+// Remember whether this document's real browser reload has already been handled,
+// so remounting Home during client-side navigation cannot force a new ranked feed.
+const RELOAD_HANDLED_TIME_ORIGIN_KEY = "gista:feed:reload-handled-time-origin";
+
+export function shouldForceFeedRefreshOnDocument(
+  storage: FeedCacheStorage | null,
+  navigationType: string | undefined,
+  timeOrigin: number,
+): boolean {
+  if (navigationType !== "reload" || !storage || !Number.isFinite(timeOrigin)) return false;
+  try {
+    const currentOrigin = String(timeOrigin);
+    if (storage.getItem(RELOAD_HANDLED_TIME_ORIGIN_KEY) === currentOrigin) return false;
+    storage.setItem(RELOAD_HANDLED_TIME_ORIGIN_KEY, currentOrigin);
+    return true;
+  } catch {
+    // If sessionStorage is blocked, don't risk repeated forced reloads on remount.
+    return false;
+  }
+}
+
 export type FeedCacheStorage = Pick<Storage, "getItem" | "setItem" | "removeItem" | "key" | "length">;
 
 export function feedCacheKey(userId: string, tab: string) {
