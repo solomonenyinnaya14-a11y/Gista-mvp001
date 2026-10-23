@@ -3,8 +3,8 @@
 // another account's cached feed (which includes that account's liked/saved flags
 // and any private-account posts it was allowed to see).
 export const FEED_CACHE_PREFIX = "gista:feed:";
-// Feed order stays frozen for the active browser session. The cache is cleared on
-// pagehide (real reload/site exit), so a time-based expiry must not silently reshuffle it.
+// Feed order stays frozen for the active browser session. A real browser reload is
+// detected once per document; client-side route changes reuse this cache and order.
 export const FEED_CACHE_MAX_AGE_MS = Number.MAX_SAFE_INTEGER;
 
 // Navigation Timing describes the whole document, not the current Next.js route.
