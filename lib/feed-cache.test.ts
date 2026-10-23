@@ -5,6 +5,7 @@ import {
   clearFeedCache,
   feedCacheKey,
   readFeedCache,
+  shouldForceFeedRefreshOnDocument,
   writeFeedCache,
   type FeedCacheStorage,
 } from "./feed-cache.ts";
@@ -44,6 +45,21 @@ test("cached feed order remains stable across elapsed time in the same browser s
   const storage = fakeStorage();
   writeFeedCache(storage, "user-a", "Discover", [postA], 1_000);
   assert.deepEqual(readFeedCache(storage, "user-a", "Discover", 1_000 + 6 * 60 * 60 * 1000), [postA]);
+});
+
+test("a real browser reload refreshes the feed only once per document", () => {
+  const storage = fakeStorage();
+  assert.equal(shouldForceFeedRefreshOnDocument(storage, "reload", 12345), true);
+  // The same document can remount Home during client-side navigation.
+  assert.equal(shouldForceFeedRefreshOnDocument(storage, "reload", 12345), false);
+  // A later browser reload has a new timeOrigin and should refresh again.
+  assert.equal(shouldForceFeedRefreshOnDocument(storage, "reload", 67890), true);
+});
+
+test("client-side navigation never forces a new feed selection", () => {
+  const storage = fakeStorage();
+  assert.equal(shouldForceFeedRefreshOnDocument(storage, "navigate", 12345), false);
+  assert.equal(shouldForceFeedRefreshOnDocument(storage, "back_forward", 12345), false);
 });
 
 test("logout clears every cached feed", () => {
