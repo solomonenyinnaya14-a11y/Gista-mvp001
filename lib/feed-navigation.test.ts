@@ -10,6 +10,10 @@ test("Back/Forward navigation never becomes a reload because of stale legacy dat
   assert.equal(isExplicitBrowserReload({ type: "back_forward" }, 1), false);
 });
 
+test("legacy Back/Forward wins if Safari reports conflicting modern reload timing", () => {
+  assert.equal(isExplicitBrowserReload({ type: "reload" }, 2), false);
+});
+
 test("ordinary navigation never becomes a reload because of legacy data", () => {
   assert.equal(isExplicitBrowserReload({ type: "navigate" }, 1), false);
 });
