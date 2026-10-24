@@ -32,7 +32,7 @@ AS $function$
 WITH me AS (
   SELECT (SELECT auth.uid()) AS user_id
 ),
-candidate_posts AS MATERIALIZED (
+eligible_posts AS MATERIALIZED (
   SELECT p.*
   FROM public.posts p
   CROSS JOIN me
@@ -50,7 +50,13 @@ candidate_posts AS MATERIALIZED (
       WHERE f.follower_id = me.user_id AND f.following_id = p.author_id
     ))
     AND (p_tab <> 'Trending' OR p.status = 'trending')
-  ORDER BY md5(p.id::text || ':' || COALESCE(p_refresh_seed, 0)::text)
+  ORDER BY p.created_at DESC, p.id DESC
+  LIMIT 500
+),
+candidate_posts AS MATERIALIZED (
+  SELECT ep.*
+  FROM eligible_posts ep
+  ORDER BY md5(ep.id::text || ':' || COALESCE(p_refresh_seed, 0)::text)
   LIMIT 50
 ),
 engagement AS (
