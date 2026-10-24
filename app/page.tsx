@@ -34,30 +34,6 @@ export default function HomePage(){
   // ranked feed and visibly reshuffle the cards. Browser reloads are detected in
   // init() and explicitly fetch a fresh feed instead.
   useEffect(()=>{postsRef.current=posts},[posts]);
-  // If the user backgrounds Safari/the browser and later returns, refresh the
-  // feed once. In-app route navigation does not hide the document, so it keeps
-  // the existing cached order. A short threshold avoids refreshes for brief
-  // system interruptions or accidental app switching.
-  useEffect(()=>{
-    if(!user)return;
-    let hiddenAt=0;
-    const onVisibilityChange=()=>{
-      if(document.visibilityState==="hidden"){hiddenAt=Date.now();return;}
-      if(document.visibilityState==="visible"&&hiddenAt>0){
-        const awayFor=Date.now()-hiddenAt;hiddenAt=0;
-        if(awayFor>=15000)void loadPosts(user,true);
-      }
-    };
-    const onPageShow=(event:PageTransitionEvent)=>{
-      if(event.persisted)void loadPosts(user,true);
-    };
-    document.addEventListener("visibilitychange",onVisibilityChange);
-    window.addEventListener("pageshow",onPageShow);
-    return()=>{
-      document.removeEventListener("visibilitychange",onVisibilityChange);
-      window.removeEventListener("pageshow",onPageShow);
-    };
-  },[user,loadPosts]);
   useEffect(()=>{let active=true;const init=async()=>{const{data}=await supabase.auth.getSession();if(!active)return;const u=data.session?.user?{id:data.session.user.id,email:data.session.user.email}:null;const storage=browserStorage();let storedUserId:string|null=null;try{storedUserId=window.sessionStorage.getItem(ACTIVE_FEED_USER_KEY)}catch{}if(u&&storedUserId!==u.id){clearFeedCache(storage,u.id);try{window.sessionStorage.setItem(ACTIVE_FEED_USER_KEY,u.id)}catch{}}else if(!u&&storedUserId){clearFeedCache(storage);try{window.sessionStorage.removeItem(ACTIVE_FEED_USER_KEY)}catch{}}setUser(u);setAuthChecked(true);initialLoadDone.current=false;if(u)loadedFeedKey.current=`${u.id}:${tab}`;const navigationType=performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming|undefined;const legacyNavigationType=(performance as Performance & {navigation?:{type?:number}}).navigation?.type;const documentTimeOrigin=String(performance.timeOrigin);let isReload=navigationType?.type==="reload"||legacyNavigationType===1;try{const consumed=window.sessionStorage.getItem("gista:feed-reload-time-origin");if(consumed===documentTimeOrigin||lastReloadRefreshTimeOrigin===documentTimeOrigin)isReload=false;else if(isReload){window.sessionStorage.setItem("gista:feed-reload-time-origin",documentTimeOrigin);lastReloadRefreshTimeOrigin=documentTimeOrigin}}catch{if(lastReloadRefreshTimeOrigin===documentTimeOrigin)isReload=false;else if(isReload)lastReloadRefreshTimeOrigin=documentTimeOrigin}void loadPosts(u,isReload);void loadProfile(u)};void init();const{data:sub}=supabase.auth.onAuthStateChange((event,session)=>{if(event!=="SIGNED_IN"&&event!=="SIGNED_OUT")return;const u=session?.user?{id:session.user.id,email:session.user.email}:null;let storedUserId:string|null=null;try{storedUserId=window.sessionStorage.getItem(ACTIVE_FEED_USER_KEY)}catch{}if(event==="SIGNED_OUT"||!u){clearFeedCache(browserStorage());try{window.sessionStorage.removeItem(ACTIVE_FEED_USER_KEY)}catch{}setUser(null);setAuthChecked(true);initialLoadDone.current=false;void Promise.all([loadPosts(null),loadProfile(null)]);return}if(storedUserId===u.id){setUser(u);setAuthChecked(true);void loadProfile(u);return}clearFeedCache(browserStorage(),u.id);try{window.sessionStorage.setItem(ACTIVE_FEED_USER_KEY,u.id)}catch{}setUser(u);setAuthChecked(true);initialLoadDone.current=false;void Promise.all([loadPosts(u),loadProfile(u)])});return()=>{active=false;sub.subscription.unsubscribe()}},[supabase,loadProfile]);
   useEffect(()=>{if(!user)return;const key=`${user.id}:${tab}`;if(loadedFeedKey.current===key)return;loadedFeedKey.current=key;void loadPosts(user)},[tab,user,loadPosts]);
   // Keep response counts live without reloading/reordering the feed. Opening or
