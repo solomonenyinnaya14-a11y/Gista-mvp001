@@ -12,6 +12,7 @@ import "./formal-architecture.css";
 import VerifiedBadgeInjector from "@/components/VerifiedBadgeInjector";
 import ThemeProvider from "@/components/ThemeProvider";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
+import FeedSessionTracker from "@/components/FeedSessionTracker";
 
 export const metadata: Metadata = {
   title: "Gista",
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <VerifiedBadgeInjector />
           <AnalyticsTracker />
+          <FeedSessionTracker />
           {children}
         </ThemeProvider>
       </body>
